@@ -17,7 +17,7 @@ import matplotlib.ticker as ticker
 import seaborn as sns
 
 
-def survShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survshap_results):
+def SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survshap_results):
         """Generates SurvShap interpretation results.
 
     Parameters
@@ -111,18 +111,30 @@ def get_feature_orderings_and_ranks_survshap(explanations):
     return pd.DataFrame(feature_importance_orderings), pd.DataFrame(feature_importance_ranks)
 
 def prepare_ranking_summary_long(ordering):
-    num_cols = ordering.shape[1]  # get number of columns
-    column_names = ["x"+str(i+1) for i in range(num_cols)]  # dynamically create column names
-    res = pd.DataFrame(columns=column_names)
+    res = pd.DataFrame()
 
-    for i in range(num_cols):
-        tmp = pd.DataFrame(ordering.iloc[:, i].value_counts().to_dict(), index=[i+1])
-        res = pd.concat([res, tmp])
+    for i in range(ordering.shape[1]):
+        counts = ordering.iloc[:, i].value_counts().reset_index()
+        counts.columns = ['variable', 'value']
+        counts['importance_ranking'] = i + 1
+        res = pd.concat([res, counts])
     
-    res = res.reset_index().rename(columns={i: "x"+str(i+1) for i in range(num_cols)}, index=str)
-    res = res.rename(columns={"index": "importance_ranking"})
+    return res[['importance_ranking', 'variable', 'value']]
+
+
+# def prepare_ranking_summary_long(ordering):
+#     num_cols = ordering.shape[1]  # get number of columns
+#     column_names = ["x"+str(i+1) for i in range(num_cols)]  # dynamically create column names
+#     res = pd.DataFrame(columns=column_names)
+
+#     for i in range(num_cols):
+#         tmp = pd.DataFrame(ordering.iloc[:, i].value_counts().to_dict(), index=[i+1])
+#         res = pd.concat([res, tmp])
     
-    return res.melt(id_vars=["importance_ranking"], value_vars=column_names)
+#     res = res.reset_index().rename(columns={i: "x"+str(i+1) for i in range(num_cols)}, index=str)
+#     res = res.rename(columns={"index": "importance_ranking"})
+    
+#     return res.melt(id_vars=["importance_ranking"], value_vars=column_names)
 
 #Plotting 
 # Function to make factors in the dataset
@@ -137,7 +149,12 @@ def make_factors(data):
     return data
 
 def barplot_variable_ranking(data, title='', ytitle=''):
-    color_palette = ["#ae2c87", "#ffa58c", "#8bdcbe", "#46BAC2", "#4378bf"]
+    color_palette = ["#9C27B0","#009688","#3F51B5","#FF5733", "#03A9F4", "#FFC300", "#DAF7A6", "#581845",
+                 "#C70039", "#FF5733", "#900C3F", "#DAF7A6", "#581845",
+                 "#9C27B0", "#673AB7",  "#2196F3", "#900C3F",
+                 "#00BCD4", "#4CAF50", "#8BC34A", "#CDDC39"]
+
+
     # Create a mapping for y-axis labels
     y_labels = {rank: f"{rank}{suffix}" for rank, suffix in zip(range(1, data['importance_ranking'].nunique() + 1), ['st', 'nd', 'rd'] + ['th'] * 20)}
     data['importance_ranking'] = data['importance_ranking'].replace(y_labels)
@@ -151,8 +168,7 @@ def barplot_variable_ranking(data, title='', ytitle=''):
             bars = plt.barh(data_subset['importance_ranking'], data_subset['value'], 
                      color=color_palette[i], edgecolor='white', label=variable, height= 0.75)
         else:
-            # For subsequent variables, stack the bars on top of the previous ones
-            # by specifying the 'left' parameter as the sum of the 'value' field for all previous variables
+            # For subsequent variables, stack the bars on top of the previous ones by specifying the 'left' parameter as the sum of the 'value' field for all previous variables
             prev_data = data[data['variable'].isin(data['variable'].cat.categories[:i])]
             prev_data_sum = prev_data.groupby('importance_ranking')['value'].sum()
             prev_data_sum = prev_data_sum.reindex(data_subset['importance_ranking']).fillna(0)
@@ -171,7 +187,6 @@ def barplot_variable_ranking(data, title='', ytitle=''):
                 verticalalignment='center', 
                 horizontalalignment='center', 
                 color='black', fontsize=12)
-
     ax = plt.gca()
     ax.set(title=title, xlabel='Value')
     ax.set_ylabel(ytitle)
@@ -181,6 +196,5 @@ def barplot_variable_ranking(data, title='', ytitle=''):
               loc='lower center', bbox_to_anchor=(1, 1))
     ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(5))
-
     plt.tight_layout()
     plt.show()

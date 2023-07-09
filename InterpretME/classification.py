@@ -13,7 +13,6 @@ from sklearn.metrics import classification_report
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import train_test_split
 from slugify import slugify
-
 import InterpretME.utils as utils
 from . import dtreeviz_lib
 

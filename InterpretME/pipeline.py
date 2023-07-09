@@ -21,8 +21,12 @@ from InterpretME.upload import upload_to_virtuoso
 
 
 def constraint_md5_sum(constraint):
-    """Generates checksum for SHACL constraints.
 
+    """Generates checksum for SHACL constraints.
+    This function takes a ShaclSchemaConstraint object, which contains 
+    SHACL constraints for validating RDF graphs, and calculates an MD5 
+    checksum for all files in the directory specified by the shape_schema_dir 
+    attribute and the target_shape attribute of the ShaclSchemaConstraint.
     Parameters
     ----------
     constraint : ShaclSchemaConstraint
@@ -43,6 +47,13 @@ def constraint_md5_sum(constraint):
     return hash_md5.hexdigest()
 
 def read_dataset(input_data,st):
+    """
+    This function reads a dataset from a file in .json or .csv format 
+    and then extracts several pieces of information needed for further processing. 
+    These pieces of information include the names of independent and dependent variables, 
+    classes and their names, and parameters for model training and validation. 
+    It also stores features' and classes' definitions in csv files for further use.
+    """
     path = input_data['path_to_data']
     if os.path.splitext(path)[1].lower() == '.json':
         with stats.measure_time('PIPE_DATASET_EXTRACTION'):
@@ -96,6 +107,10 @@ def read_dataset(input_data,st):
 
 def read_KG(input_data, st):
     """Reads from the input knowledge graphs and extracts data.
+    This function reads from a knowledge graph, constructs a dataset by executing a SPARQL query, 
+    and then extracts several pieces of information needed for further processing. It applies 
+    SHACL constraints to the dataset to validate it and then stores features' and classes' 
+    definitions and SHACL validation results in csv files for further use.
 
     Extracting features and its definition from the input knowledge graphs using sparqlQuery
     and applying SHACL constraints on the input knowledge graphs to identify valid and invalid
@@ -241,15 +256,20 @@ def read_KG(input_data, st):
     return seed_var, independent_var, dependent_var, classes, class_names, annotated_dataset, constraints, base_dataset, st, input_data['3_valued_logic'], sampling, test_split, num_imp_features, train_model, cv, min_max_depth, max_max_depth
 
 
-# get the start time and use it as run_id
 def current_milli_time():
+    ''' Helper function to generate a unique identifier for the current execution
+    of the pipeline, based on the current timestamp in milliseconds
+    get the start time and use it as run_id
+    '''
     return round(time.time() * 1000)
 
 
 def pipeline(path_config, lime_results, server_url=None, username=None, password=None,
              sampling=None, cv=None, imp_features=None, test_split=None, model=None):
     """Executing InterpretME pipeline.
-
+    The pipeline function is the main workhorse of this script. It orchestrates 
+    he entire process of loading the data, transforming it, training the machine learning
+    model, and saving the results.
     InterpretME pipeline is the important function which helps executes all the main components of
     InterpretME including extraction of data from input knowledge graphs, preprocessing data,
     applying sampling strategy if specified by user, and generating machine learning model outputs.
@@ -286,70 +306,74 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
         objects which can be used for further analysis.
 
     """
+    # Getting a unique identifier for this run of the pipeline
     st = current_milli_time()
     results = {'run_id': st}
-
+    # Setting up the progress bar for tracking the execution progress
     utils.pbar = utils.tqdm(total=5, miniters=1, desc='InterpretME Pipeline', unit='task')
-
+    # Check and create necessary directories for storing files
     if not os.path.exists('interpretme/files'):
         os.makedirs('interpretme/files')
         # print("The directory for files is created")
-
+    # Start collecting stats for this run
     stats.STATS_COLLECTOR.activate(hyperparameters=[])
     stats.STATS_COLLECTOR.new_run(hyperparameters=[])
 
+    # Load the configuration file containing the input data specifications
     with open(path_config, "r") as input_file_descriptor:
         input_data = json.load(input_file_descriptor)
 
     utils.pbar.set_description('Read input data', refresh=True)
+    # Determine if the data is coming from a SPARQL endpoint or a local dataset
     input_is_kg = None
     if "Endpoint" in input_data.keys() and "path_to_data" not in input_data.keys():
-        # input from SPARQL endpoint
+        # Input data is coming from a SPARQL endpoint
         input_is_kg = True
         seed_var, independent_var, dependent_var, classes, class_names, annotated_dataset, constraints, base_dataset, st, non_applicable_counts, samplingstrategy, train_test_split, num_imp_features, train_model, cross_validation, min_max_depth, max_max_depth = read_KG(input_data, st)
     elif "Endpoint" not in input_data.keys() and "path_to_data" in input_data.keys():
-        # input from dataset
+        # Input data is coming from a local dataset
         input_is_kg = False
         seed_var, independent_var, dependent_var, classes, class_names, st, sampling, test_split, num_imp_features, train_model, cv, annotated_dataset, min_max_depth, max_max_depth = read_dataset(input_data, st)
     else:
-        # error
+        # Neither a SPARQL endpoint nor a local dataset is provided (ERROR)
         raise Exception("Please provide either SPARQL endpoint or Dataset")
-
+    # Check if the user has specified any sampling strategy, if not use the default from the configuration
     if sampling is None:
         sampling = samplingstrategy
     else:
         sampling = sampling
-
+    # Store the chosen sampling strategy for this run
     df3 = pd.DataFrame({'sampling': pd.Series(sampling)})
     df3.loc[:, 'run_id'] = st
     df3 = df3.set_index('run_id')
     df3.to_csv('interpretme/files/sampling_strategy.csv')
-
+    # Check if the user has specified the number of important features, if not use the default from the configuration
     if imp_features is None:
         imp_features = num_imp_features
     else:
         imp_features = imp_features
-
+    # Store the chosen number of important features for this run
     df4 = pd.DataFrame({'num_imp_features': pd.Series(imp_features)})
     df4.loc[:, 'run_id'] = st
     df4 = df4.set_index('run_id')
     df4.to_csv('interpretme/files/imp_features.csv')
-
+    # Check if the user has specified the number of folds for cross-validation, if not use the default from the configuration
     if cv is None:
         cv = cross_validation
     else:
         cv = cv
-
+    # Store the chosen number of cross-validation folds for this run
     df5 = pd.DataFrame({'cross_validation': pd.Series(cv)})
     df5.loc[:, 'run_id'] = st
     df5 = df5.set_index('run_id')
     df5.to_csv('interpretme/files/cross_validation.csv')
-
+    # Check if the user has specified the test-train split ratio, if not use the default from the configuration
     if test_split is None:
         test_split = train_test_split
     else:
         test_split = test_split
 
+    # Check if the user has specified a specific machine learning model to use, if not use the default from the configuration
     if model is None:
         model = train_model
     else:
@@ -357,19 +381,24 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
     utils.pbar.update(1)  # end of reading the input dataset
 
     utils.pbar.set_description('Preprocessing', refresh=True)
+
+    # Begin the process of data loading and preprocessing
     with stats.measure_time('PIPE_PREPROCESSING'):
         encoded_data, encode_target = preprocessing_data.load_data(seed_var, dependent_var, classes, annotated_dataset)
     utils.pbar.update(1)
 
+    # Apply the chosen sampling strategy to the preprocessed data
     utils.pbar.set_description('Sampling', refresh=True)
     with stats.measure_time('PIPE_SAMPLING'):
         sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target, sampling, results)
     utils.pbar.update(1)
 
+    # Train the machine learning model and make predictions
     new_sampled_data, clf, results = classification.classify(sampled_data, sampled_target, imp_features, cv, classes, st, lime_results, test_split, model, results, min_max_depth, max_max_depth)
     processed_df = pd.concat((new_sampled_data, sampled_target), axis='columns')
     processed_df.reset_index(inplace=True)
 
+    # If input data was from a SPARQL endpoint, create plots and statistics
     if "Endpoint" in input_data.keys() and "path_to_data" not in input_data.keys():
         utils.pbar.total += 1
         utils.pbar.set_description('Preparing Plots Data', refresh=True)
@@ -397,10 +426,13 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
                         'PIPE_InterpretMEKG_SEMANTIFICATION']
 
     utils.pbar.set_description('Semantifying Results', refresh=True)
+
+    # Convert the results into a machine-readable format (RDF)
     with stats.measure_time('PIPE_InterpretMEKG_SEMANTIFICATION'):
         rdf_semantification(input_is_kg)
     utils.pbar.update(1)
 
+    # If server details are provided, upload the RDF file to the server
     if server_url is not None and username is not None and password is not None:
         categories_stats.append('PIPE_InterpretMEKG_UPLOAD_VIRTUOSO')
         utils.pbar.total += 1
@@ -410,8 +442,10 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
                                server_url=server_url, username=username, password=password)
         utils.pbar.update(1)
 
+     # Collect and store statistics about this run
     stats.STATS_COLLECTOR.to_file('times.csv', categories=categories_stats)
 
     utils.pbar.set_description('InterpretME Pipeline')
+    # Close the progress bar and return the results
     utils.pbar.close()
     return results
