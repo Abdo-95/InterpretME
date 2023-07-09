@@ -14,7 +14,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.model_selection import train_test_split
 from slugify import slugify
 import InterpretME.utils as utils
-from . import dtreeviz_lib
+from . import dtreeviz_lib , survshap
 
 optuna.logging.set_verbosity(optuna.logging.ERROR)
 
@@ -60,7 +60,7 @@ time_output = stats.get_decorator('PIPE_OUTPUT')
 
 
 def classify(sampled_data, sampled_target, imp_features, cv, classes,
-             st, lime_results, train_test_split, model, results, min_max_depth, max_max_depth):
+             st, lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth):
     """Selecting classification strategy based on the number of classes provided by the user.
 
     Parameters
@@ -93,10 +93,10 @@ def classify(sampled_data, sampled_target, imp_features, cv, classes,
     """
     if len(classes) == 2:
         new_sampled_data, clf, results = binary_classification(sampled_data, sampled_target, imp_features, cv, classes,
-                                                               st, lime_results, train_test_split, model, results, min_max_depth, max_max_depth)
+                                                               st, lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth)
     else:
         new_sampled_data, clf, results = multiclass(sampled_data, sampled_target, imp_features, cv, classes, st,
-                                                    lime_results, train_test_split, model, results, min_max_depth, max_max_depth)
+                                                    lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth)
     return new_sampled_data, clf, results
 
 
@@ -205,7 +205,7 @@ def lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, c
 
 
 def binary_classification(sampled_data, sampled_target, imp_features, cross_validation,
-                          classes, st, lime_results, test_split, model, results, min_max_depth, max_max_depth):
+                          classes, st, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
     """Binary classification technique.
 
     Parameters
@@ -353,7 +353,7 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
 
 
 def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
-               st, lime_results, test_split, model, results, min_max_depth, max_max_depth):
+               st, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
     """Multiclass classification technique
 
     Parameters

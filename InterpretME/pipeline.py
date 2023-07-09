@@ -306,6 +306,8 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
         objects which can be used for further analysis.
 
     """
+    ###***   <INITIALIZATION>  ***###
+
     # Getting a unique identifier for this run of the pipeline
     st = current_milli_time()
     results = {'run_id': st}
@@ -318,6 +320,8 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
     # Start collecting stats for this run
     stats.STATS_COLLECTOR.activate(hyperparameters=[])
     stats.STATS_COLLECTOR.new_run(hyperparameters=[])
+
+    ###***   <INPUT READING>  ***###
 
     # Load the configuration file containing the input data specifications
     with open(path_config, "r") as input_file_descriptor:
@@ -382,10 +386,14 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
 
     utils.pbar.set_description('Preprocessing', refresh=True)
 
+    ###***   <DATA PREPROCESSING>  ***###
+
     # Begin the process of data loading and preprocessing
     with stats.measure_time('PIPE_PREPROCESSING'):
         encoded_data, encode_target = preprocessing_data.load_data(seed_var, dependent_var, classes, annotated_dataset)
     utils.pbar.update(1)
+
+    ###***   <DATA SAMPLING>  ***###
 
     # Apply the chosen sampling strategy to the preprocessed data
     utils.pbar.set_description('Sampling', refresh=True)
@@ -393,10 +401,14 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
         sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target, sampling, results)
     utils.pbar.update(1)
 
+    ###***   <MODEL BULDING & CLASSIFICATION>  ***###
+
     # Train the machine learning model and make predictions
     new_sampled_data, clf, results = classification.classify(sampled_data, sampled_target, imp_features, cv, classes, st, lime_results, test_split, model, results, min_max_depth, max_max_depth)
     processed_df = pd.concat((new_sampled_data, sampled_target), axis='columns')
     processed_df.reset_index(inplace=True)
+
+    ###***   <PREPARING PLOTS DATA>  ***###
 
     # If input data was from a SPARQL endpoint, create plots and statistics
     if "Endpoint" in input_data.keys() and "path_to_data" not in input_data.keys():
@@ -427,10 +439,14 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
 
     utils.pbar.set_description('Semantifying Results', refresh=True)
 
+    ###***   <SEMENTIFYING RESULTS>  ***###
+
     # Convert the results into a machine-readable format (RDF)
     with stats.measure_time('PIPE_InterpretMEKG_SEMANTIFICATION'):
         rdf_semantification(input_is_kg)
     utils.pbar.update(1)
+
+    ###***   <UPLOADING TO VIRTUOSO>  ***###
 
     # If server details are provided, upload the RDF file to the server
     if server_url is not None and username is not None and password is not None:
