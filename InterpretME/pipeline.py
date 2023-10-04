@@ -264,7 +264,7 @@ def current_milli_time():
     return round(time.time() * 1000)
 
 
-def pipeline(path_config, lime_results, server_url=None, username=None, password=None,
+def pipeline(path_config, survival, lime_results, survshap_results, server_url=None, username=None, password=None,
              sampling=None, cv=None, imp_features=None, test_split=None, model=None):
     """Executing InterpretME pipeline.
     The pipeline function is the main workhorse of this script. It orchestrates 
@@ -404,7 +404,7 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
     ###***   <MODEL BULDING & CLASSIFICATION>  ***###
 
     # Train the machine learning model and make predictions
-    new_sampled_data, clf, results = classification.classify(sampled_data, sampled_target, imp_features, cv, classes, st, lime_results, test_split, model, results, min_max_depth, max_max_depth)
+    new_sampled_data, clf, results = classification.classify(sampled_data, sampled_target, imp_features, cv, classes, st, survival, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth)
     processed_df = pd.concat((new_sampled_data, sampled_target), axis='columns')
     processed_df.reset_index(inplace=True)
 
@@ -433,7 +433,7 @@ def pipeline(path_config, lime_results, server_url=None, username=None, password
         utils.pbar.update(1)
 
     categories_stats = ['PIPE_DATASET_EXTRACTION', 'PIPE_SHACL_VALIDATION', 'PIPE_PREPROCESSING',
-                        'PIPE_SAMPLING', 'PIPE_IMPORTANT_FEATURES', 'PIPE_LIME', 'PIPE_TRAIN_MODEL',
+                        'PIPE_SAMPLING', 'PIPE_IMPORTANT_FEATURES', 'PIPE_LIME', 'PIPE_SURVSHAP','PIPE_TRAIN_MODEL',
                         'PIPE_DTREEVIZ', 'PIPE_CONSTRAINT_VIZ', 'PIPE_OUTPUT', 'join',
                         'PIPE_InterpretMEKG_SEMANTIFICATION']
 

@@ -5,6 +5,7 @@ import numpy as np
 import pickle
 from tqdm import tqdm
 import survshap
+import validating_models.stats as stats
 import json
 from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
@@ -16,8 +17,10 @@ import matplotlib.patches as mpatches
 import matplotlib.ticker as ticker
 import seaborn as sns
 
+time_survshap = stats.get_decorator('PIPE_SURVSHAP')
 
-def SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survshap_results):
+@time_survshap
+def SurvShap_interpretation(X_train, X_test, best_clf, st, new_sampled_data, survshap_results=None):
         """Generates SurvShap interpretation results.
 
     Parameters
@@ -28,6 +31,8 @@ def SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survsha
         Preprocessed dataset containing the important_features.
     best_clf : model
         Best model saved after applying Decision tree.
+    st : int
+        Unique identifier.
     ind_test : index
         Testing index.
     X_test : array
@@ -62,6 +67,7 @@ def SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survsha
             SurvShap_values.fit(explainer, xx)
             survshaps[i] = SurvShap_values
             features_list[i] = xx.columns.tolist()
+            
             # convert SurvShap_values to a DataFrame and save as csv
             df_survshap = DataFrame(SurvShap_values.result)
             # Get the directory from the file path & Define the directory for saving CSV files.
@@ -71,22 +77,54 @@ def SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survsha
             if not os.path.exists(csv_dir_path):
                 os.makedirs(csv_dir_path)
             # Now you can safely write the CSV file.
-            csv_file_path = os.path.join(csv_dir_path, f'survshap_{i}.csv')
+            csv_file_path = os.path.join(csv_dir_path, f'patient_{i}.csv')
             df_survshap.to_csv(csv_file_path, index=False)
 
             pbar.update(1)
+        combine_survshaps_files(csv_dir_path, st)
         pbar.close()
-        # Save results as Pickle file
-        with open(survshap_results, "wb") as file:
-            pickle.dump(survshaps, file)
-        
+        if survshap_results is not None:
+            ## If the path defined in 'survshap_results' does not exist, Create it!
+            if not os.path.exists(survshap_results):
+                os.makedirs(survshap_results, exist_ok=True)
+            # Save results as Pickle file
+            with open(survshap_results, "wb") as file:
+                pickle.dump(survshaps, file)
         return survshaps
 
-def get_local_accuracy_from_shap_explanations(all_explanations, method_label, cluster_label, model_label, last_index=None):
+
+def survshap_local_accuracy(all_explanations, method_label, cluster_label, model_label, last_index=None):
+    
+    """ This function estimates the local accuracy of the predictions made using SurvSHAP.
+    The function outputs a DataFrame containing the timestamps,
+    the local accuracy (sigma) and the labels for the method, the cluster and the model.
+    Parameters
+    ----------
+    all_explanations : list
+        List of SHAP explanations for predictions.
+    method_label : str
+        Label describing the method used for generating SHAP explanations.
+    cluster_label : str
+        Label describing the cluster the SHAP explanations belong to.
+    model_label : str
+        Label describing the model used for predictions.
+    last_index : int, optional
+        Index at which to stop calculating accuracy. If not provided, the full length of the timestamp array is used.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame with time, sigma (local accuracy), method, cluster, and model information.
+
+    """
+
+    # If last_index is not provided, use the full length of the timestamp array
+    
     if last_index is None:
         last_index=len(all_explanations[0].timestamps)
     diffs = []
     preds = []
+    # Loop through all explanations and calculate prediction differences
     for explanation in all_explanations:
         preds.append(explanation.predicted_function[:last_index])
         diffs.append(explanation.predicted_function[:last_index] - explanation.baseline_function[:last_index] - np.array(explanation.result.iloc[:, 5:].sum(axis=0))[:last_index])
@@ -98,8 +136,22 @@ def get_local_accuracy_from_shap_explanations(all_explanations, method_label, cl
      "method": method_label, "cluster": cluster_label, "model": model_label })
 
 def get_feature_orderings_and_ranks_survshap(explanations):
+
+    """Calculates feature rankings and ranks from SurvShap declarations.
+    Parameters
+    ----------
+    explanations : list
+        List of SurvShap explanations for predictions.
+
+    Returns
+    -------
+    pd.DataFrame
+        Two DataFrames, one with the feature ranks and one with the feature ranks.
+
+    """
     feature_importance_orderings = []
     feature_importance_ranks = []
+    # Loop through all explanations and calculate the cumulative change
     for explanation in explanations:
         result_df = explanation.result.copy()
         cumulative_change = cumtrapz(np.abs(result_df.iloc[:, 5:].values), explanation.timestamps, initial=0, axis=1)[:, -1]
@@ -107,19 +159,92 @@ def get_feature_orderings_and_ranks_survshap(explanations):
         sorted_df = result_df.sort_values(by='aggregated_change', key=lambda x: -abs(x))
         feature_importance_orderings.append(sorted_df.index.to_list())
         feature_importance_ranks.append(np.abs(sorted_df['aggregated_change']).rank(ascending=False).to_list())
-    
+    #Create DataFrames with the calculated results and return them
     return pd.DataFrame(feature_importance_orderings), pd.DataFrame(feature_importance_ranks)
 
 def prepare_ranking_summary_long(ordering):
-    res = pd.DataFrame()
+    """ Provide a summary of the ranking for a given Ordering DataFrame.
 
+    Parameter
+    ----------
+    ordering : pd.DataFrame
+        A DataFrame containing the ordering of the features.
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the fields 'importance_ranking', 'variable' and 'value',
+        where 'importance_ranking' is the rank of the variable,
+        'variable' is the name of the variable
+        and 'value' is the number of the variable in the given rank.
+    """
+    res = pd.DataFrame()
+    #Iterate through each column in the Ordering df
     for i in range(ordering.shape[1]):
+        ## Calculate value numbers for each variable
         counts = ordering.iloc[:, i].value_counts().reset_index()
         counts.columns = ['variable', 'value']
+        # Assign a rank (i + 1) to each variable
         counts['importance_ranking'] = i + 1
+        # Add the counts df to the resulting DataFrame
         res = pd.concat([res, counts])
-    
+    # Return the resulting DataFrame with selected columns
     return res[['importance_ranking', 'variable', 'value']]
+
+def combine_survshaps_files(survshap_files_path, st):
+    """Combine survshaps csv files fa single CSV file.
+
+    Parameters
+    ----------
+    survshap_files_path : string
+        Directory containing the input SurvShap output CSV files
+    st : Integer
+        Run_ID
+    Returns
+    -------
+    dataframe
+
+    """
+    
+    all_files = [os.path.join(survshap_files_path, file) for file in os.listdir(survshap_files_path) if file.endswith('.csv')]
+
+    li = []
+
+    for filename in all_files:
+        # Read each csv file
+        df = pd.read_csv(filename, index_col=None, header=0)
+
+        # Extracting relevant columns
+        temp_df = df[['variable_name', 'variable_value', 'aggregated_change']].copy()
+
+        # Rename columns to match the desired format
+        temp_df.columns = ['Features', 'Values', 'Aggregated Weights']
+
+        # Extract the filename (without the extension) to use as the 'index' value
+        file_name = os.path.basename(filename).split('.')[0]
+        temp_df.insert(0, 'index', file_name)
+
+        # Append this dataframe to the list
+        li.append(temp_df)
+
+    # Concatenate all the dataframes in the list
+    final_df = pd.concat(li, axis=0, ignore_index=True)
+    # Extract the numerical part of the 'index' and convert it to integer
+    final_df['index_num'] = final_df['index'].str.extract('(\d+)').astype(int)
+    # Sort the final dataframe by 'index' and then by 'features'
+    final_df = final_df.sort_values(by=['index_num', 'Features'])
+    # Drop the 'index_num' column as it's no longer needed
+    final_df.drop('index_num', axis=1, inplace=True)
+    # Add the 'tool' column with the value 'SurvShap'
+    final_df['run_id'] =  st
+    final_df['tool'] = 'SurvShap'
+    # Define the subfolder and create it if it doesn't exist
+    subfolder_path = os.path.join(survshap_files_path, 'combined_survshaps')
+    if not os.path.exists(subfolder_path):
+        os.makedirs(subfolder_path)
+    # Save the final dataframe to the desired location
+    output_path = os.path.join(subfolder_path, 'combined_survhshap.csv')
+    final_df.to_csv(output_path, index=False)
 
 
 # def prepare_ranking_summary_long(ordering):

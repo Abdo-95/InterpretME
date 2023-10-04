@@ -60,7 +60,7 @@ time_output = stats.get_decorator('PIPE_OUTPUT')
 
 
 def classify(sampled_data, sampled_target, imp_features, cv, classes,
-             st, lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth):
+             st, survival,lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth):
     """Selecting classification strategy based on the number of classes provided by the user.
 
     Parameters
@@ -93,9 +93,9 @@ def classify(sampled_data, sampled_target, imp_features, cv, classes,
     """
     if len(classes) == 2:
         new_sampled_data, clf, results = binary_classification(sampled_data, sampled_target, imp_features, cv, classes,
-                                                               st, lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth)
+                                                               st, survival, lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth)
     else:
-        new_sampled_data, clf, results = multiclass(sampled_data, sampled_target, imp_features, cv, classes, st,
+        new_sampled_data, clf, results = multiclass(sampled_data, sampled_target, imp_features, cv, classes, st, survival,
                                                     lime_results, survshap_results, train_test_split, model, results, min_max_depth, max_max_depth)
     return new_sampled_data, clf, results
 
@@ -205,7 +205,7 @@ def lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, c
 
 
 def binary_classification(sampled_data, sampled_target, imp_features, cross_validation,
-                          classes, st, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
+                          classes, st, survival, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
     """Binary classification technique.
 
     Parameters
@@ -319,8 +319,14 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
         res = res.set_index('run_id')
         res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
 
-    lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
-
+    # 2 Options Survival or Static depending on the user input
+    if survival == 0: {
+        lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
+    }
+    elif survival == 1: {
+        survshap.SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survshap_results=None)
+    }
+        
     # Saving the classification report
     with stats.measure_time('PIPE_OUTPUT'):
         report = classification_report(y_test, y_pred, target_names=classes, output_dict=True)
@@ -353,7 +359,7 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
 
 
 def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
-               st, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
+               st, survival, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth):
     """Multiclass classification technique
 
     Parameters
@@ -469,8 +475,12 @@ def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
         else:
             res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv', mode='a', header=False)
 
-    lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
-
+    if survival == 0: {
+        lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
+    }
+    elif survival == 1: {
+        survshap.SurvShap_interpretation(X_train, X_test, best_clf, st, new_sampled_data, survshap_results=None)
+    }
     # Saving the classification report
     with stats.measure_time('PIPE_OUTPUT'):
         report = classification_report(y_test, y_pred, target_names=classes, output_dict=True)
@@ -497,3 +507,4 @@ def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
         results['dtree'] = viz
 
     return new_sampled_data, best_clf, results
+
