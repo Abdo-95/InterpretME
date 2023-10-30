@@ -6,6 +6,46 @@ import validating_models.stats as stats
 time_preprocessing = stats.get_decorator('PIPE_PREPROCESSING')
 
 
+# def define_class(classes, dependent_var, annotated_dataset):
+#     """Define classes specified by user in the dataset extracted from knowledge graphs.
+
+#     Parameters
+#     ----------
+#     classes : list
+#         List of classes defined by user in input file.
+#     dependent_var : dataframe
+#         Target variable column of dataframe.
+#     annotated_dataset : dataframe
+#         The dataframe extracted from knowledge graph.
+
+#     Returns
+#     -------
+#     dataframe
+
+#     """
+#     cls = {}
+#     target = annotated_dataset[dependent_var]
+#     length = len(classes)
+#     if length >= 2:
+#         if length == 2:
+#               class0, class1 = map(str, classes)
+#               id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
+#               target.loc[(target.index.isin(id_0)), 'class'] = 0
+#               target.loc[~(target.index.isin(id_0)), 'class'] = 1
+#               target = target[['class']]
+#         else:
+#             for i, j in enumerate(classes):
+#                 cls[j] = i
+#             target['class'] = target.iloc[:, 0].map(cls)
+#             if target['class'].isnull().values.any():
+#                 n = len(classes)
+#                 target['class'] = target['class'].replace(np.nan, n-1)
+#             target = target[['class']]
+#     else:
+#         print("Error - less than 2 classes given for classification")
+
+#     return target
+
 def define_class(classes, dependent_var, annotated_dataset):
     """Define classes specified by user in the dataset extracted from knowledge graphs.
 
@@ -23,28 +63,39 @@ def define_class(classes, dependent_var, annotated_dataset):
     dataframe
 
     """
-    cls = {}
-    target = annotated_dataset[dependent_var]
-    length = len(classes)
-    if length >= 2:
-        if length == 2:
-              class0, class1 = map(str, classes)
-              id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
-              target.loc[(target.index.isin(id_0)), 'class'] = 0
-              target.loc[~(target.index.isin(id_0)), 'class'] = 1
-              target = target[['class']]
-        else:
-            for i, j in enumerate(classes):
-                cls[j] = i
-            target['class'] = target.iloc[:, 0].map(cls)
-            if target['class'].isnull().values.any():
-                n = len(classes)
-                target['class'] = target['class'].replace(np.nan, n-1)
-            target = target[['class']]
+    if len(dependent_var) == 2:
+        # If there are two dependent variables (like "time" and "event"), return them as they are
+        target = annotated_dataset[dependent_var]
+        event_col = dependent_var[1]  # Assuming 'event' is the second dependent variable
+        
+        # Create a class mapping based on the classes list
+        class_mapping = {str(i): class_name for i, class_name in enumerate(classes)}
+        
+        target[event_col] = target[event_col].map(class_mapping)
+        return target
     else:
-        print("Error - less than 2 classes given for classification")
-
-    return target
+        # Original logic for classifying
+        cls = {}
+        target = annotated_dataset[dependent_var]
+        length = len(classes)
+        if length >= 2:
+            if length == 2:
+                  class0, class1 = map(str, classes)
+                  id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
+                  target.loc[(target.index.isin(id_0)), 'class'] = 0
+                  target.loc[~(target.index.isin(id_0)), 'class'] = 1
+                  target = target[['class']]
+            else:
+                for i, j in enumerate(classes):
+                    cls[j] = i
+                target['class'] = target.iloc[:, 0].map(cls)
+                if target['class'].isnull().values.any():
+                    n = len(classes)
+                    target['class'] = target['class'].replace(np.nan, n-1)
+                target = target[['class']]
+        else:
+            print("Error - less than 2 classes given for classification")
+        return target
 
 
 def transform_to_binary(data, attribute, val_a, val_b):
