@@ -320,12 +320,12 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
         res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
 
     # 2 Options Survival or Static depending on the user input
-    if survival == 0: {
+    if survival == 0: 
         lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
-    }
-    elif survival == 1: {
-        survshap.SurvShap_interpretation(X_train, X_test, best_clf, new_sampled_data, survshap_results=None)
-    }
+    
+    elif survival == 1: 
+        survshap.SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None)
+    
         
     # Saving the classification report
     with stats.measure_time('PIPE_OUTPUT'):
@@ -475,12 +475,12 @@ def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
         else:
             res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv', mode='a', header=False)
 
-    if survival == 0: {
+    if survival == 0: 
         lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
-    }
-    elif survival == 1: {
-        survshap.SurvShap_interpretation(X_train, X_test, best_clf, st, new_sampled_data, survshap_results=None)
-    }
+    
+    elif survival == 1: 
+        survshap.SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None)
+    
     # Saving the classification report
     with stats.measure_time('PIPE_OUTPUT'):
         report = classification_report(y_test, y_pred, target_names=classes, output_dict=True)

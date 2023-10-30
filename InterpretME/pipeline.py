@@ -264,7 +264,7 @@ def current_milli_time():
     return round(time.time() * 1000)
 
 
-def pipeline(path_config, survival, lime_results, survshap_results, server_url=None, username=None, password=None,
+def pipeline(path_config, lime_results, survshap_results, server_url=None, username=None, password=None, survival=None, 
              sampling=None, cv=None, imp_features=None, test_split=None, model=None):
     """Executing InterpretME pipeline.
     The pipeline function is the main workhorse of this script. It orchestrates 
@@ -280,8 +280,12 @@ def pipeline(path_config, survival, lime_results, survshap_results, server_url=N
     ----------
     path_config : str
         Path to the configuration file from input knowledge graphs.
+    survival: int
+        Survival analysis enabler, 1 for SurvSHAP and 0 for LIME
     lime_results : str
         Path where to store LIME results in HTML format.
+    survshap_results: str
+        Path where to store SurvSHAP results in csv format.
     server_url : str, OPTIONAL
         Server URL to upload the InterpretME knowledge graph.(e.g- Virtuoso)
     username : str, OPTIONAL

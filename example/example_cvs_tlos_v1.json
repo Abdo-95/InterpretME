@@ -1,18 +1,18 @@
 {
-    "path_to_data": "dataset/tlos_v1.csv",
-    "Type": "Patient",
-    "Index_var": "index",
-    "Independent_variable": ["sex", "age", "an_parenchymal_opacification", "an_cardiac_silhouette_enlargement", "an_pleural_effusion"],
-    "Dependent_variable": ["event"],
-    "classes": {
-      "NoSpouse": "0",
-      "HasSpouse": "1"
-    },
-    "sampling_strategy": "undersampling",
-    "number_important_features": 6,
-    "cross_validation_folds": 5,
-    "test_split": 0.3,
-    "model": "Random Forest",
-    "min_max_depth": 4,
-    "max_max_depth": 6
-  }
+  "path_to_data": "dataset/tlos_v1.csv",
+  "Type": "Person",
+  "Index_var": "index",
+  "Independent_variable": ["index","sex", "age", "an_parenchymal_opacification", "an_cardiac_silhouette_enlargement", "an_pleural_effusion", "pr_firstorder_MeanAbsoluteDeviation"],
+  "Dependent_variable": ["event"],
+  "classes": {
+    "Dead": "0",
+    "Alive": "1"
+  },
+  "sampling_strategy": "undersampling",
+  "number_important_features": 6,
+  "cross_validation_folds": 5,
+  "test_split": 0.3,
+  "model": "Random Forest",
+  "min_max_depth": 4,
+  "max_max_depth": 6
+}

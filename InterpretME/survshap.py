@@ -20,7 +20,7 @@ import seaborn as sns
 time_survshap = stats.get_decorator('PIPE_SURVSHAP')
 
 @time_survshap
-def SurvShap_interpretation(X_train, X_test, best_clf, st, new_sampled_data, survshap_results=None):
+def SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None):
         """Generates SurvShap interpretation results.
 
     Parameters
@@ -45,23 +45,29 @@ def SurvShap_interpretation(X_train, X_test, best_clf, st, new_sampled_data, sur
     dataframe
 
     """
-        y_train = Surv.from_dataframe("event", "time", X_train)
+        if isinstance(X_train, np.ndarray):
+            X_train = pd.DataFrame(X_train, columns=new_sampled_data.columns)
+
+        if isinstance(y_train, np.ndarray):
+            y_train = pd.DataFrame(y_train, columns=['event', 'time'])
+
+        y_train = Surv.from_dataframe("event", "time", y_train)
 
         # get column names of important features and remove event and time columns
         imp_feature_cols = new_sampled_data.columns.tolist()
-        X_train_n = X_train.drop(['time', 'event'], axis=1)
-        X_test_n = X_test.drop(['time', 'event'], axis=1)
+        #X_train_n = X_train.drop(['time', 'event'], axis=1)
+        #X_test_n = X_test.drop(['time', 'event'], axis=1)
         # select only important features in X_train and X_test
-        x_train_features = X_train.loc[:, X_train.columns.isin(imp_feature_cols)]
-        x_test_features = X_test.loc[:, X_test.columns.isin(imp_feature_cols)]
+        #x_train_features = X_train.loc[:, X_train.columns.isin(imp_feature_cols)]
+        #x_test_features = X_test.loc[:, X_test.columns.isin(imp_feature_cols)]
         
-        explainer = survshap.SurvivalModelExplainer(best_clf, x_train_features, y_train)
+        explainer = survshap.SurvivalModelExplainer(best_clf, X_train, y_train)
 
-        survshaps = [None]*len(x_test_features)
-        features_list = [None]*len(x_test_features)
+        survshaps = [None]*len(X_test)
+        features_list = [None]*len(X_test)
 
-        pbar = tqdm(total=len(x_test_features), desc='SurvShap explanations')
-        for i, obsv in enumerate(x_test_features.values):
+        pbar = tqdm(total=len(X_test), desc='SurvShap explanations')
+        for i, obsv in enumerate(X_test):
             xx = pd.DataFrame(np.atleast_2d(obsv), columns=explainer.data.columns)
             SurvShap_values = survshap.PredictSurvSHAP("sf", "kernel", "integral", "average", 25, None, False)
             SurvShap_values.fit(explainer, xx)
