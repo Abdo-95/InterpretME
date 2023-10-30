@@ -168,8 +168,16 @@ def read_KG(input_data, st):
         features = independent_var + dependent_var
 
         shacl_engine_communicator = ReducedTravshaclCommunicator(
-        '', endpoint, resource_filename('InterpretME', 'shacl_api_config.json')
-           )
+            '', endpoint,
+            {
+                "backend": "travshacl",
+                "start_with_target_shape": True,
+                "replace_target_query": True,
+                "prune_shape_network": True,
+                "output_format": "simple",
+                "outputs": False
+            }
+        )
 
     def hook(results):
         bindings = [{key: value['value'] for key, value in binding.items()}
@@ -337,7 +345,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
     if "Endpoint" in input_data.keys() and "path_to_data" not in input_data.keys():
         # Input data is coming from a SPARQL endpoint
         input_is_kg = True
-        seed_var, independent_var, dependent_var, classes, class_names, annotated_dataset, constraints, base_dataset, st, non_applicable_counts, samplingstrategy, train_test_split, num_imp_features, train_model, cross_validation, min_max_depth, max_max_depth = read_KG(input_data, st)
+        seed_var, independent_var, dependent_var, classes, class_names, annotated_dataset, constraints, base_dataset, st, non_applicable_counts, sampling, train_test_split, num_imp_features, train_model, cross_validation, min_max_depth, max_max_depth = read_KG(input_data, st)
     elif "Endpoint" not in input_data.keys() and "path_to_data" in input_data.keys():
         # Input data is coming from a local dataset
         input_is_kg = False
@@ -347,7 +355,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
         raise Exception("Please provide either SPARQL endpoint or Dataset")
     # Check if the user has specified any sampling strategy, if not use the default from the configuration
     if sampling is None:
-        sampling = samplingstrategy
+        sampling = "None"
     else:
         sampling = sampling
     # Store the chosen sampling strategy for this run
@@ -402,7 +410,10 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
     # Apply the chosen sampling strategy to the preprocessed data
     utils.pbar.set_description('Sampling', refresh=True)
     with stats.measure_time('PIPE_SAMPLING'):
-        sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target, sampling, results)
+        if sampling == "None":
+            sampled_data, sampled_target = encoded_data, encode_target
+        else:
+            sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target,sampling, results)
     utils.pbar.update(1)
 
     ###***   <MODEL BULDING & CLASSIFICATION>  ***###
