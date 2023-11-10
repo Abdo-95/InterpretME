@@ -8,10 +8,12 @@ import pandas as pd
 import sklearn
 import validating_models.stats as stats
 from sklearn import tree
+from sksurv.util import Surv
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
+from sksurv.ensemble import RandomSurvivalForest
 from sklearn.metrics import classification_report
-from sklearn.model_selection import StratifiedShuffleSplit
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
+from sklearn.model_selection import train_test_split, ParameterGrid
 from slugify import slugify
 import InterpretME.utils as utils
 from . import dtreeviz_lib , survshap
@@ -236,28 +238,44 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
     (dataframe, model, dict)
 
     """
-    sampled_target['class'] = sampled_target['class'].astype(int)
-    X = sampled_data
-    y = sampled_target['class']
+    if survival == 0:
+        sampled_target['class'] = sampled_target['class'].astype(int)
+        X = sampled_data
+        y = sampled_target['class']
+        X_input, y_input = X.values, y.values
+    elif survival == 1:
+        #sampled_target['class'] = sampled_target['class'].astype(int)
+        #sampled_target['time'] = sampled_target['time'].astype(int)
+        X_input, y_input = sampled_data, sampled_target
 
-    X_input, y_input = X.values, y.values
+    
     with stats.measure_time('PIPE_IMPORTANT_FEATURES'):
         # print("---------------- Random Forest Classification with Stratified shuffle split -----------------------")
         # print(model)
         if model == 'Random Forest':
             # print('Random Forest Classifier')
             estimator = RandomForestClassifier(max_depth=4, random_state=0)
+        elif model == 'Random survival Forest':
+            estimator = RandomSurvivalForest(random_state=123, n_estimators= 150, max_depth = 4)
         elif model == 'AdaBoost':
             # print('AdaBoost Classifier')
             estimator = AdaBoostClassifier(random_state=0)
         elif model == 'Gradient Boosting':
             # print('Gradient Boosting Classifier')
             estimator = GradientBoostingClassifier(random_state=0)
-
+    if survival == 1:
+        feature_names = sampled_data.columns.tolist()
+        indices = np.array(range(len(feature_names)))
+        X_train, X_test, y_train, y_test = train_test_split(
+            sampled_data, sampled_target, test_size=test_split, random_state=123
+        )
+        print('X_train', X_train)
+        print('y_train', y_train)
+        
+    else:
         cv = StratifiedShuffleSplit(n_splits=cross_validation, test_size=test_split, random_state=123)
         important_features = set()
         important_features_size = imp_features
-
         # Classification report for every iteration
         for i, (train, test) in enumerate(cv.split(X_input, y_input)):
             estimator.fit(X_input[train], y_input[train])
@@ -268,63 +286,68 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
             for f in range(important_features_size):
                 important_features.add(X.columns.values[indices[f]])
 
-    data = plot_feature_importance(estimator.feature_importances_, X.columns)
-    results['feature_importance'] = data
+        data = plot_feature_importance(estimator.feature_importances_, X.columns)
+        results['feature_importance'] = data
 
-    # Taking important features
-    new_sampled_data = sampled_data[list(important_features)]
-    indices = new_sampled_data.index.values
+        # Taking important features
+        new_sampled_data = sampled_data[list(important_features)]
+        indices = new_sampled_data.index.values
+        feature_names = new_sampled_data.columns
+        X_train, X_test, y_train, y_test, ind_train, ind_test = train_test_split(
+            new_sampled_data.values, sampled_target['class'].values, indices, random_state=123
+        )
     # print(indices)
-    X_train, X_test, y_train, y_test, ind_train, ind_test = train_test_split(
-        new_sampled_data.values, sampled_target['class'].values, indices, random_state=123
-    )
-
-    feature_names = new_sampled_data.columns
-
+        
+        
+    
+    print('feature_names', feature_names)
     utils.pbar.total += 100
     utils.pbar.set_description('Model Training', refresh=True)
     with stats.measure_time('PIPE_TRAIN_MODEL'):
-        # Hyperparameter Optimization using AutoML
-        study = optuna.create_study(direction="maximize")
-        automl_optuna = AutoMLOptuna(min_max_depth, max_max_depth, X_train, y_train)
-        study.optimize(automl_optuna, n_trials=100, callbacks=[AdvanceProgressBarCallback()])
-        # print(study.best_value)
-        # print(study.best_params)
-        params = study.best_params
-        del params['classifier']
-        best_clf = tree.DecisionTreeClassifier(**params)
-        best_clf.fit(X_train, y_train)
-
-        # parameters = {"max_depth": range(4, 6)}
-        # # GridSearchCV to select best hyperparameters
-        # grid = GridSearchCV(estimator=clf, param_grid=parameters)
-        # grid_res = grid.fit(X_train, y_train)
-        # best_clf = grid_res.best_estimator_
+        if survival == 0:
+            # Hyperparameter Optimization using AutoML
+            study = optuna.create_study(direction="maximize")
+            automl_optuna = AutoMLOptuna(min_max_depth, max_max_depth, X_train, y_train)
+            study.optimize(automl_optuna, n_trials=100, callbacks=[AdvanceProgressBarCallback()])
+            # print(study.best_value)
+            # print(study.best_params)
+            params = study.best_params
+            del params['classifier']
+            best_clf = tree.DecisionTreeClassifier(**params)
+            best_clf.fit(X_train, y_train)
+            # parameters = {"max_depth": range(4, 6)}
+            # # GridSearchCV to select best hyperparameters
+            # grid = GridSearchCV(estimator=clf, param_grid=parameters)
+            # grid_res = grid.fit(X_train, y_train)
+            # best_clf = grid_res.best_estimator_
+        elif survival == 1:
+            best_clf = estimator.fit(X_train, y_train)
 
     # predictions = (clf.fit(X_train, y_train)).predict(X_test)
     with stats.measure_time('PIPE_OUTPUT'):
-        acc = best_clf.score(X_test, y_test)
-        y_pred = best_clf.predict(X_test)
-        model_name = type(best_clf).__name__
+        if survival == 0:
+            acc = best_clf.score(X_test, y_test)
+            y_pred = best_clf.predict(X_test)
+            model_name = type(best_clf).__name__
 
-        # hyp = best_clf.get_params()
-        hyp = study.best_params
-        hyp_keys = hyp.keys()
-        hyp_val = hyp.values()
+            # hyp = best_clf.get_params()
+            hyp = study.best_params
+            hyp_keys = hyp.keys()
+            hyp_val = hyp.values()
 
-        res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 'hyperparameters_value': pd.Series(hyp_val)})
-        res.loc[:, 'run_id'] = st
-        res.loc[:, 'model'] = model_name
-        res.loc[:, 'accuracy'] = acc
-        res = res.set_index('run_id')
-        res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
+            res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 'hyperparameters_value': pd.Series(hyp_val)})
+            res.loc[:, 'run_id'] = st
+            res.loc[:, 'model'] = model_name
+            res.loc[:, 'accuracy'] = acc
+            res = res.set_index('run_id')
+            res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
 
     # 2 Options Survival or Static depending on the user input
     if survival == 0: 
         lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
     
-    elif survival == 1: 
-        survshap.SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None)
+    elif survival == 1:
+        survshap.SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results=None)
     
         
     # Saving the classification report
@@ -400,7 +423,9 @@ def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
         # print("---------------- Random Forest Classification with Stratified shuffle split -----------------------")
         if model == 'Random Forest':
             # print('Random Forest Classifier')
-            estimator = RandomForestClassifier(max_depth=4, random_state=0)
+            if survival == 0:
+                estimator = RandomForestClassifier(max_depth=4, random_state=0)
+
         elif model == 'AdaBoost':
             # print('AdaBoost Classifier')
             estimator = AdaBoostClassifier(random_state=0)
@@ -478,7 +503,8 @@ def multiclass(sampled_data, sampled_target, imp_features, cv, classes,
     if survival == 0: 
         lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
     
-    elif survival == 1: 
+    elif survival == 1:
+
         survshap.SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None)
     
     # Saving the classification report

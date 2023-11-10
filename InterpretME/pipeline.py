@@ -402,7 +402,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
 
     # Begin the process of data loading and preprocessing
     with stats.measure_time('PIPE_PREPROCESSING'):
-        encoded_data, encode_target = preprocessing_data.load_data(seed_var, dependent_var, classes, annotated_dataset)
+        encoded_data, encode_target = preprocessing_data.load_data(seed_var, dependent_var, classes, annotated_dataset, survival)
     utils.pbar.update(1)
 
     ###***   <DATA SAMPLING>  ***###
@@ -413,7 +413,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
         if sampling == "None":
             sampled_data, sampled_target = encoded_data, encode_target
         else:
-            sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target,sampling, results)
+            sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target,sampling, results, survival)
     utils.pbar.update(1)
 
     ###***   <MODEL BULDING & CLASSIFICATION>  ***###

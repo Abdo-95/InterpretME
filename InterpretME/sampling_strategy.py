@@ -3,7 +3,7 @@ from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 
 
-def sampling_strategy(encode_data, encode_target, strategy, results):
+def sampling_strategy(encode_data, encode_target, strategy, results, survival):
     """Sampling strategy to balance the imbalanced data for predictive model.
 
     Parameters
@@ -24,13 +24,13 @@ def sampling_strategy(encode_data, encode_target, strategy, results):
 
     """
     if strategy == 'undersampling':
-        X, y, results = undersampling(encode_data, encode_target, results)
+        X, y, results = undersampling(encode_data, encode_target, results, survival)
     if strategy == 'oversampling':
-        X, y, results = oversampling(encode_data, encode_target, results)
+        X, y, results = oversampling(encode_data, encode_target, results, survival)
     return X, y, results
 
 
-def undersampling(encode_data, encode_target, results):
+def undersampling(encode_data, encode_target, results, survival):
     """Under-Sampling strategy.
 
     Parameters
@@ -50,18 +50,26 @@ def undersampling(encode_data, encode_target, results):
     """
     sampling_strategy = "not minority"
     X = encode_data
-    Y = encode_target['class']
+    Y = encode_target
     rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=123)
-    X_res, y_res = rus.fit_resample(X, Y)
+    X_res, y_res = rus.fit_resample(X, Y['class'])
+    if survival == 1:
+        y_res_time = Y['time'].iloc[rus.sample_indices_]
+        # Combine 'class' and 'time' back into a dataframe
+        y_res = pd.DataFrame({
+            'class': y_res,
+            'time': y_res_time
+        })
     X_res.index = X.index[rus.sample_indices_]
     y_res.index = Y.index[rus.sample_indices_]
     samp = y_res.value_counts()
     results['sampling'] = samp
     y_res = pd.DataFrame(data=y_res)
+    print('this is y_res', y_res)
     return X_res, y_res, results
 
 
-def oversampling(encode_data, encode_target, results):
+def oversampling(encode_data, encode_target, results, survival):
     """Over-Sampling strategy.
 
     Parameters
@@ -81,13 +89,21 @@ def oversampling(encode_data, encode_target, results):
     """
     sampling_strategy = "not majority"
     X = encode_data
-    Y = encode_target['class']
-    ros = RandomOverSampler(sampling_strategy=sampling_strategy)
-    X_res, y_res = ros.fit_resample(X, Y)
-    X_res.index = X.index[ros.sample_indices_]
-    y_res.index = Y.index[ros.sample_indices_]
+    Y = encode_target
+    rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=123)
+    X_res, y_res = rus.fit_resample(X, Y['class'])
+    if survival == 1:
+        y_res_time = Y['time'].iloc[rus.sample_indices_]
+        # Combine 'class' and 'time' back into a dataframe
+        y_res = pd.DataFrame({
+            'class': y_res,
+            'time': y_res_time
+        })
+    X_res.index = X.index[rus.sample_indices_]
+    y_res.index = Y.index[rus.sample_indices_]
     samp = y_res.value_counts()
     results['sampling'] = samp
     y_res = pd.DataFrame(data=y_res)
+    print('this is y_res', y_res)
     return X_res, y_res, results
 

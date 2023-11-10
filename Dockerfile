@@ -8,7 +8,6 @@ RUN apt-get update && \
     apt-get install -y g++ && \
     apt-get install -y make && \
     apt-get install -y cmake && \
-    apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*  && \
     python -m pip install --no-cache-dir --upgrade pip==23.0.* setuptools==58.0.*
 

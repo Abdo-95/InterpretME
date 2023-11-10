@@ -20,7 +20,7 @@ import seaborn as sns
 time_survshap = stats.get_decorator('PIPE_SURVSHAP')
 
 @time_survshap
-def SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test, st, survshap_results=None):
+def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results=None):
         """Generates SurvShap interpretation results.
 
     Parameters
@@ -45,21 +45,13 @@ def SurvShap_interpretation(X_train, y_train, new_sampled_data, best_clf, X_test
     dataframe
 
     """
-        if isinstance(X_train, np.ndarray):
-            X_train = pd.DataFrame(X_train, columns=new_sampled_data.columns)
+        # if isinstance(X_train, np.ndarray):
+        #     X_train = pd.DataFrame(X_train, columns=new_sampled_data.columns)
 
-        if isinstance(y_train, np.ndarray):
-            y_train = pd.DataFrame(y_train, columns=['event', 'time'])
+        # if isinstance(y_train, np.ndarray):
+        #     y_train = pd.DataFrame(y_train, columns=['class', 'time'])
 
-        y_train = Surv.from_dataframe("event", "time", y_train)
-
-        # get column names of important features and remove event and time columns
-        imp_feature_cols = new_sampled_data.columns.tolist()
-        #X_train_n = X_train.drop(['time', 'event'], axis=1)
-        #X_test_n = X_test.drop(['time', 'event'], axis=1)
-        # select only important features in X_train and X_test
-        #x_train_features = X_train.loc[:, X_train.columns.isin(imp_feature_cols)]
-        #x_test_features = X_test.loc[:, X_test.columns.isin(imp_feature_cols)]
+        # y_train = Surv.from_dataframe("class", "time", y_train)
         
         explainer = survshap.SurvivalModelExplainer(best_clf, X_train, y_train)
 

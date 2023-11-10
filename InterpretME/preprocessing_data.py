@@ -2,49 +2,9 @@ import numpy as np
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 import validating_models.stats as stats
-
+from sksurv.util import Surv
 time_preprocessing = stats.get_decorator('PIPE_PREPROCESSING')
 
-
-# def define_class(classes, dependent_var, annotated_dataset):
-#     """Define classes specified by user in the dataset extracted from knowledge graphs.
-
-#     Parameters
-#     ----------
-#     classes : list
-#         List of classes defined by user in input file.
-#     dependent_var : dataframe
-#         Target variable column of dataframe.
-#     annotated_dataset : dataframe
-#         The dataframe extracted from knowledge graph.
-
-#     Returns
-#     -------
-#     dataframe
-
-#     """
-#     cls = {}
-#     target = annotated_dataset[dependent_var]
-#     length = len(classes)
-#     if length >= 2:
-#         if length == 2:
-#               class0, class1 = map(str, classes)
-#               id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
-#               target.loc[(target.index.isin(id_0)), 'class'] = 0
-#               target.loc[~(target.index.isin(id_0)), 'class'] = 1
-#               target = target[['class']]
-#         else:
-#             for i, j in enumerate(classes):
-#                 cls[j] = i
-#             target['class'] = target.iloc[:, 0].map(cls)
-#             if target['class'].isnull().values.any():
-#                 n = len(classes)
-#                 target['class'] = target['class'].replace(np.nan, n-1)
-#             target = target[['class']]
-#     else:
-#         print("Error - less than 2 classes given for classification")
-
-#     return target
 
 def define_class(classes, dependent_var, annotated_dataset):
     """Define classes specified by user in the dataset extracted from knowledge graphs.
@@ -63,39 +23,79 @@ def define_class(classes, dependent_var, annotated_dataset):
     dataframe
 
     """
-    if len(dependent_var) == 2:
-        # If there are two dependent variables (like "time" and "event"), return them as they are
-        target = annotated_dataset[dependent_var]
-        event_col = dependent_var[1]  # Assuming 'event' is the second dependent variable
-        
-        # Create a class mapping based on the classes list
-        class_mapping = {str(i): class_name for i, class_name in enumerate(classes)}
-        
-        target[event_col] = target[event_col].map(class_mapping)
-        return target
-    else:
-        # Original logic for classifying
-        cls = {}
-        target = annotated_dataset[dependent_var]
-        length = len(classes)
-        if length >= 2:
-            if length == 2:
-                  class0, class1 = map(str, classes)
-                  id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
-                  target.loc[(target.index.isin(id_0)), 'class'] = 0
-                  target.loc[~(target.index.isin(id_0)), 'class'] = 1
-                  target = target[['class']]
-            else:
-                for i, j in enumerate(classes):
-                    cls[j] = i
-                target['class'] = target.iloc[:, 0].map(cls)
-                if target['class'].isnull().values.any():
-                    n = len(classes)
-                    target['class'] = target['class'].replace(np.nan, n-1)
-                target = target[['class']]
+    cls = {}
+    target = annotated_dataset[dependent_var]
+    length = len(classes)
+    if length >= 2:
+        if length == 2:
+              class0, class1 = map(str, classes)
+              id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
+              target.loc[(target.index.isin(id_0)), 'class'] = 0
+              target.loc[~(target.index.isin(id_0)), 'class'] = 1
+              target = target[['class']]
         else:
-            print("Error - less than 2 classes given for classification")
-        return target
+            for i, j in enumerate(classes):
+                cls[j] = i
+            target['class'] = target.iloc[:, 0].map(cls)
+            if target['class'].isnull().values.any():
+                n = len(classes)
+                target['class'] = target['class'].replace(np.nan, n-1)
+            target = target[['class']]
+    else:
+        print("Error - less than 2 classes given for classification")
+
+    return target
+
+# def define_class(classes, dependent_var, annotated_dataset):
+#     """Define classes specified by user in the dataset extracted from knowledge graphs.
+
+#     Parameters
+#     ----------
+#     classes : list
+#         List of classes defined by user in input file.
+#     dependent_var : dataframe
+#         Target variable column of dataframe.
+#     annotated_dataset : dataframe
+#         The dataframe extracted from knowledge graph.
+
+#     Returns
+#     -------
+#     dataframe
+
+#     """
+#     if len(dependent_var) == 2:
+#         # If there are two dependent variables (like "time" and "event"), return them as they are
+#         target = annotated_dataset[dependent_var]
+#         event_col = dependent_var[1]  # Assuming 'event' is the second dependent variable
+        
+#         # Create a class mapping based on the classes list
+#         class_mapping = {str(i): class_name for i, class_name in enumerate(classes)}
+        
+#         target[event_col] = target[event_col].map(class_mapping)
+#         return target
+#     else:
+#         # Original logic for classifying
+#         cls = {}
+#         target = annotated_dataset[dependent_var]
+#         length = len(classes)
+#         if length >= 2:
+#             if length == 2:
+#                   class0, class1 = map(str, classes)
+#                   id_0 = target.index[target.iloc[:, 0].astype(str).str.contains(class0)]
+#                   target.loc[(target.index.isin(id_0)), 'class'] = 0
+#                   target.loc[~(target.index.isin(id_0)), 'class'] = 1
+#                   target = target[['class']]
+#             else:
+#                 for i, j in enumerate(classes):
+#                     cls[j] = i
+#                 target['class'] = target.iloc[:, 0].map(cls)
+#                 if target['class'].isnull().values.any():
+#                     n = len(classes)
+#                     target['class'] = target['class'].replace(np.nan, n-1)
+#                 target = target[['class']]
+#         else:
+#             print("Error - less than 2 classes given for classification")
+#         return target
 
 
 def transform_to_binary(data, attribute, val_a, val_b):
@@ -135,7 +135,7 @@ def hot_encode(data, seed_var):
 
 
 @time_preprocessing
-def load_data(seed_var, dependent_var, classes, annotated_dataset):
+def load_data(seed_var, dependent_var, classes, annotated_dataset, survival):
     """Preprocessing (one-hot encoding) the dataset extracted from input knowledge graph.
 
     Parameters
@@ -159,7 +159,20 @@ def load_data(seed_var, dependent_var, classes, annotated_dataset):
     """
     # print("--------- Preprocessing Data --------------")
     # print(annotated_dataset)
-    encode_target = define_class(classes, dependent_var, annotated_dataset)
-    ann_data = annotated_dataset.drop(dependent_var, axis=1)
-    encode_data = hot_encode(ann_data, seed_var)
-    return encode_data, encode_target
+    if survival == 1:
+        encode_data = annotated_dataset.drop(['event', 'time'], axis=1)
+        encode_target = Surv.from_dataframe("event", "time", annotated_dataset)
+        new_dtype = [('event', 'bool'), ('time', 'float64')]
+        encode_target = np.array(encode_target, dtype=new_dtype)
+        return encode_data, encode_target
+    else:
+        encode_target = define_class(classes, dependent_var, annotated_dataset)
+        # If survival analysis is intended, add the 'time' column to the encoded target
+        # if survival == 1:
+        #     time_column = annotated_dataset['time']  # assuming 'time' is the name of your time column
+        #     encode_target = pd.concat([encode_target, time_column], axis=1)
+
+        ann_data = annotated_dataset.drop(dependent_var, axis=1)
+        encode_data = hot_encode(ann_data, seed_var)
+
+        return encode_data, encode_target

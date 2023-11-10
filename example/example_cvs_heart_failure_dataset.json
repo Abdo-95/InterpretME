@@ -3,16 +3,16 @@
   "Type": "Person",
   "Index_var": "index",
   "Independent_variable": ["index","sex", "age", "anaemia", "diabetes", "smoking"],
-  "Dependent_variable": ["time", "event"],
+  "Dependent_variable": ["event"],
   "classes": {
     "Dead": "0",
     "Alive": "1"
   },
-  "sampling_strategy": "undersampling",
-  "number_important_features": 6,
+  "sampling_strategy": "None",
+  "number_important_features": 5,
   "cross_validation_folds": 5,
   "test_split": 0.3,
-  "model": "Random Forest",
+  "model": "Random survival Forest",
   "min_max_depth": 4,
   "max_max_depth": 6
 }
