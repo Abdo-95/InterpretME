@@ -167,10 +167,6 @@ def load_data(seed_var, dependent_var, classes, annotated_dataset, survival):
         return encode_data, encode_target
     else:
         encode_target = define_class(classes, dependent_var, annotated_dataset)
-        # If survival analysis is intended, add the 'time' column to the encoded target
-        # if survival == 1:
-        #     time_column = annotated_dataset['time']  # assuming 'time' is the name of your time column
-        #     encode_target = pd.concat([encode_target, time_column], axis=1)
 
         ann_data = annotated_dataset.drop(dependent_var, axis=1)
         encode_data = hot_encode(ann_data, seed_var)

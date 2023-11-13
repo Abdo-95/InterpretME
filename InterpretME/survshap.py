@@ -20,7 +20,7 @@ import seaborn as sns
 time_survshap = stats.get_decorator('PIPE_SURVSHAP')
 
 @time_survshap
-def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results=None):
+def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results):
         """Generates SurvShap interpretation results.
 
     Parameters
@@ -45,21 +45,19 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
     dataframe
 
     """
-        # if isinstance(X_train, np.ndarray):
-        #     X_train = pd.DataFrame(X_train, columns=new_sampled_data.columns)
-
-        # if isinstance(y_train, np.ndarray):
-        #     y_train = pd.DataFrame(y_train, columns=['class', 'time'])
-
-        # y_train = Surv.from_dataframe("class", "time", y_train)
-        
         explainer = survshap.SurvivalModelExplainer(best_clf, X_train, y_train)
-
         survshaps = [None]*len(X_test)
         features_list = [None]*len(X_test)
-
+        # Check and create the survshap_results directory if it's not None
+        if survshap_results is not None:
+            if not os.path.exists(survshap_results):
+                os.makedirs(survshap_results, exist_ok=True)
+            # Define the directory for saving CSV files.
+        csv_dir_path = os.path.join(survshap_results, 'survshap_values')
+        if not os.path.exists(csv_dir_path):
+            os.makedirs(csv_dir_path, exist_ok=True)
         pbar = tqdm(total=len(X_test), desc='SurvShap explanations')
-        for i, obsv in enumerate(X_test):
+        for i, obsv in tqdm(enumerate(X_test.values)):
             xx = pd.DataFrame(np.atleast_2d(obsv), columns=explainer.data.columns)
             SurvShap_values = survshap.PredictSurvSHAP("sf", "kernel", "integral", "average", 25, None, False)
             SurvShap_values.fit(explainer, xx)
@@ -68,12 +66,6 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
             
             # convert SurvShap_values to a DataFrame and save as csv
             df_survshap = DataFrame(SurvShap_values.result)
-            # Get the directory from the file path & Define the directory for saving CSV files.
-            base_directory = os.path.dirname(survshap_results)
-            csv_dir_path = os.path.join(base_directory, 'survshap_values')
-            # Create the directory if it doesn't exist.
-            if not os.path.exists(csv_dir_path):
-                os.makedirs(csv_dir_path)
             # Now you can safely write the CSV file.
             csv_file_path = os.path.join(csv_dir_path, f'patient_{i}.csv')
             df_survshap.to_csv(csv_file_path, index=False)
@@ -85,8 +77,10 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
             ## If the path defined in 'survshap_results' does not exist, Create it!
             if not os.path.exists(survshap_results):
                 os.makedirs(survshap_results, exist_ok=True)
+            # Construct the full file path for the pickle file
+            pickle_file_path = os.path.join(survshap_results, "survshap_results.pkl")
             # Save results as Pickle file
-            with open(survshap_results, "wb") as file:
+            with open(pickle_file_path, "wb") as file:
                 pickle.dump(survshaps, file)
         return survshaps
 

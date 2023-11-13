@@ -1,5 +1,5 @@
 {
-  "path_to_data": "dataset/heart_failure_dataset.csv",
+  "path_to_data": "dataset/heart_failure_dataset_6_features.csv",
   "Type": "Person",
   "Index_var": "index",
   "Independent_variable": ["index","sex", "age", "anaemia", "diabetes", "smoking"],
