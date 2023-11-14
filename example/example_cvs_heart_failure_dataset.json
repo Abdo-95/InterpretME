@@ -1,18 +1,18 @@
 {
-  "path_to_data": "dataset/heart_failure_dataset_6_features.csv",
+  "path_to_data": "dataset/heart_failure_dataset.csv",
   "Type": "Person",
   "Index_var": "index",
-  "Independent_variable": ["index","sex", "age", "anaemia", "diabetes", "smoking"],
+  "Independent_variable": ["index","sex", "age", "anaemia", "smoking"],
   "Dependent_variable": ["event"],
   "classes": {
     "Dead": "0",
     "Alive": "1"
   },
   "sampling_strategy": "None",
-  "number_important_features": 5,
+  "number_important_features": 4,
   "cross_validation_folds": 5,
   "test_split": 0.3,
-  "model": "Random survival Forest",
+  "model": "Random Forest",
   "min_max_depth": 4,
   "max_max_depth": 6
 }

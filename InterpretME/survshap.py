@@ -53,7 +53,7 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
             if not os.path.exists(survshap_results):
                 os.makedirs(survshap_results, exist_ok=True)
             # Define the directory for saving CSV files.
-        csv_dir_path = os.path.join(survshap_results, 'survshap_values')
+        csv_dir_path = os.path.join(survshap_results, 'SurvShap')
         if not os.path.exists(csv_dir_path):
             os.makedirs(csv_dir_path, exist_ok=True)
         pbar = tqdm(total=len(X_test), desc='SurvShap explanations')

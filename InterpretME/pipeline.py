@@ -402,7 +402,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
 
     # Begin the process of data loading and preprocessing
     with stats.measure_time('PIPE_PREPROCESSING'):
-        encoded_data, encode_target = preprocessing_data.load_data(seed_var, dependent_var, classes, annotated_dataset, survival)
+        encoded_data, encode_target = preprocessing_data.load_data(seed_var , independent_var, dependent_var, classes, annotated_dataset, survival)
     utils.pbar.update(1)
 
     ###***   <DATA SAMPLING>  ***###

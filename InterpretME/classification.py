@@ -8,13 +8,12 @@ import pandas as pd
 import sklearn
 import validating_models.stats as stats
 from sklearn import tree
-from sksurv.util import Surv
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, GradientBoostingClassifier
-from sksurv.ensemble import RandomSurvivalForest
-from sklearn.metrics import classification_report, brier_score_loss
+from sklearn.metrics import classification_report
+from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit, train_test_split, ParameterGrid, GridSearchCV, cross_val_score
+from sksurv.util import Surv
 from sksurv.metrics import integrated_brier_score
-from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit
-from sklearn.model_selection import train_test_split, ParameterGrid
+from sksurv.ensemble import RandomSurvivalForest
 from slugify import slugify
 import InterpretME.utils as utils
 from . import dtreeviz_lib , survshap
@@ -244,140 +243,172 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
         X = sampled_data
         y = sampled_target['class']
         X_input, y_input = X.values, y.values
+        with stats.measure_time('PIPE_IMPORTANT_FEATURES'):
+            # print("---------------- Random Forest Classification with Stratified shuffle split -----------------------")
+            # print(model)
+            if model == 'Random Forest':
+                # print('Random Forest Classifier')
+                estimator = RandomForestClassifier(max_depth=4, random_state=0)
+            elif model == 'AdaBoost':
+                # print('AdaBoost Classifier')
+                estimator = AdaBoostClassifier(random_state=0)
+            elif model == 'Gradient Boosting':
+                # print('Gradient Boosting Classifier')
+                estimator = GradientBoostingClassifier(random_state=0)
+            cv = StratifiedShuffleSplit(n_splits=cross_validation, test_size=test_split, random_state=123)
+            important_features = set()
+            important_features_size = imp_features
+            # Classification report for every iteration
+            for i, (train, test) in enumerate(cv.split(X_input, y_input)):
+                estimator.fit(X_input[train], y_input[train])
+                y_predicted = estimator.predict(X_input[test])  # TODO: Is it necessary to do the prediction here if nothing happens with the prediction?
+
+                fea_importance = estimator.feature_importances_
+                indices = np.argsort(fea_importance)[::-1]
+                for f in range(important_features_size):
+                    important_features.add(X.columns.values[indices[f]])
+
+            data = plot_feature_importance(estimator.feature_importances_, X.columns)
+            results['feature_importance'] = data
+
+            # Taking important features
+            new_sampled_data = sampled_data[list(important_features)]
+            indices = new_sampled_data.index.values
+            feature_names = new_sampled_data.columns
+            X_train, X_test, y_train, y_test, ind_train, ind_test = train_test_split(
+                new_sampled_data.values, sampled_target['class'].values, indices, random_state=123
+            )
+            utils.pbar.total += 100
+            utils.pbar.set_description('Model Training', refresh=True)
+            with stats.measure_time('PIPE_TRAIN_MODEL'):
+                # Hyperparameter Optimization using AutoML
+                study = optuna.create_study(direction="maximize")
+                automl_optuna = AutoMLOptuna(min_max_depth, max_max_depth, X_train, y_train)
+                study.optimize(automl_optuna, n_trials=100, callbacks=[AdvanceProgressBarCallback()])
+                # print(study.best_value)
+                # print(study.best_params)
+                params = study.best_params
+                del params['classifier']
+                best_clf = tree.DecisionTreeClassifier(**params)
+                best_clf.fit(X_train, y_train)
+                # parameters = {"max_depth": range(4, 6)}
+                # # GridSearchCV to select best hyperparameters
+                # grid = GridSearchCV(estimator=clf, param_grid=parameters)
+                # grid_res = grid.fit(X_train, y_train)
+                # best_clf = grid_res.best_estimator_
+                with stats.measure_time('PIPE_OUTPUT'):
+                    acc = best_clf.score(X_test, y_test)
+                    y_pred = best_clf.predict(X_test)
+                    model_name = type(best_clf).__name__
+                    # hyp = best_clf.get_params()
+                    hyp = study.best_params
+                    hyp_keys = hyp.keys()
+                    hyp_val = hyp.values()
+                    res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 'hyperparameters_value': pd.Series(hyp_val)})
+                    res.loc[:, 'run_id'] = st
+                    res.loc[:, 'model'] = model_name
+                    res.loc[:, 'accuracy'] = acc
+                    res = res.set_index('run_id')
+                    res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
+                utils.pbar.set_description('Interpretability Process', refresh=True)
+                lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
+                # Saving the classification report
+                with stats.measure_time('PIPE_OUTPUT'):
+                    report = classification_report(y_test, y_pred, target_names=classes, output_dict=True)
+                    classificationreport = pd.DataFrame(report).transpose()
+                    classificationreport.loc[:, 'run_id'] = st
+                    classificationreport = classificationreport.reset_index()
+                    classificationreport = classificationreport.rename(columns={classificationreport.columns[0]: 'classes'})
+                    # print(classificationreport)
+                    report = classificationreport.iloc[:-3, :]
+                    # print(report)
+                    report.to_csv("interpretme/files/precision_recall.csv", index=False)
+
+                                
+                utils.pbar.set_description('Preparing Plots Data', refresh=True)
+                with stats.measure_time('PIPE_DTREEVIZ'):
+                    bool_feature = []
+                    for feature in new_sampled_data.columns:
+                        values = new_sampled_data[feature].unique()
+                        if len(values) == 2:
+                            values = sorted(values)
+                            if values[0] == 0 and values[1] == 1:
+                                bool_feature.append(feature)
+
+                    viz = dtreeviz_lib.dtreeviz(best_clf, new_sampled_data, sampled_target['class'], target_name='class',
+                                                feature_names=feature_names, class_names=classes, fancy=True,
+                                                show_root_edge_labels=True, bool_feature=bool_feature)
+                    results['dtree'] = viz
+                utils.pbar.update(1)
+                
     elif survival == 1:
-        X_input, y_input = sampled_data, sampled_target
+        with stats.measure_time('PIPE_IMPORTANT_FEATURES'):
+            new_sampled_data = sampled_data
+            feature_names = sampled_data.columns.tolist()
+            X_train, X_test, y_train, y_test = train_test_split(
+                sampled_data, sampled_target, test_size=test_split, random_state=123
+            )
+            feature_names = sampled_data.columns.tolist()
+            indices = np.array(range(len(feature_names)))
+            X_train, X_test, y_train, y_test = train_test_split(
+                sampled_data, sampled_target, test_size=test_split, random_state=123
+            )
+            # Define the hyperparameter grid for RandomSurvivalForest
+            hyperparameter_grid = {
+                'n_estimators': [100, 300],
+                'max_depth': [3, 5],
+                'max_features': ['sqrt', 'log2']
+            }
 
-    
-    with stats.measure_time('PIPE_IMPORTANT_FEATURES'):
-        # print("---------------- Random Forest Classification with Stratified shuffle split -----------------------")
-        # print(model)
-        if model == 'Random Forest':
-            # print('Random Forest Classifier')
-            estimator = RandomForestClassifier(max_depth=4, random_state=0)
-        elif model == 'Random survival Forest':
-            estimator = RandomSurvivalForest(random_state=123, n_estimators= 150, max_depth = 4)
-        elif model == 'AdaBoost':
-            # print('AdaBoost Classifier')
-            estimator = AdaBoostClassifier(random_state=0)
-        elif model == 'Gradient Boosting':
-            # print('Gradient Boosting Classifier')
-            estimator = GradientBoostingClassifier(random_state=0)
-    if survival == 1:
-        feature_names = sampled_data.columns.tolist()
-        indices = np.array(range(len(feature_names)))
-        X_train, X_test, y_train, y_test = train_test_split(
-            sampled_data, sampled_target, test_size=test_split, random_state=123
-        )
+            # Use GridSearchCV for hyperparameter tuning
+            cv = GridSearchCV(estimator=RandomSurvivalForest(random_state=0), 
+                            param_grid=hyperparameter_grid, 
+                            cv=cross_validation,
+                            n_jobs=-1)
+            cv_result = cv.fit(X_train, y_train)
 
-        
-    else:
-        cv = StratifiedShuffleSplit(n_splits=cross_validation, test_size=test_split, random_state=123)
-        important_features = set()
-        important_features_size = imp_features
-        # Classification report for every iteration
-        for i, (train, test) in enumerate(cv.split(X_input, y_input)):
-            estimator.fit(X_input[train], y_input[train])
-            y_predicted = estimator.predict(X_input[test])  # TODO: Is it necessary to do the prediction here if nothing happens with the prediction?
-
-            fea_importance = estimator.feature_importances_
-            indices = np.argsort(fea_importance)[::-1]
-            for f in range(important_features_size):
-                important_features.add(X.columns.values[indices[f]])
-
-        data = plot_feature_importance(estimator.feature_importances_, X.columns)
-        results['feature_importance'] = data
-
-        # Taking important features
-        new_sampled_data = sampled_data[list(important_features)]
-        indices = new_sampled_data.index.values
-        feature_names = new_sampled_data.columns
-        X_train, X_test, y_train, y_test, ind_train, ind_test = train_test_split(
-            new_sampled_data.values, sampled_target['class'].values, indices, random_state=123
-        )
-    # print(indices)
-        
-    #print('feature_names', feature_names)
-    utils.pbar.total += 100
-    utils.pbar.set_description('Model Training', refresh=True)
-    with stats.measure_time('PIPE_TRAIN_MODEL'):
-        if survival == 0:
-            # Hyperparameter Optimization using AutoML
-            study = optuna.create_study(direction="maximize")
-            automl_optuna = AutoMLOptuna(min_max_depth, max_max_depth, X_train, y_train)
-            study.optimize(automl_optuna, n_trials=100, callbacks=[AdvanceProgressBarCallback()])
-            # print(study.best_value)
-            # print(study.best_params)
-            params = study.best_params
-            del params['classifier']
-            best_clf = tree.DecisionTreeClassifier(**params)
+            # Extract the best parameters and model
+            best_param = cv_result.best_params_
+            best_clf = RandomSurvivalForest(random_state=123, 
+                                            n_estimators=best_param['n_estimators'], 
+                                            max_depth=best_param['max_depth'], 
+                                            max_features=best_param['max_features'])
             best_clf.fit(X_train, y_train)
-            # parameters = {"max_depth": range(4, 6)}
-            # # GridSearchCV to select best hyperparameters
-            # grid = GridSearchCV(estimator=clf, param_grid=parameters)
-            # grid_res = grid.fit(X_train, y_train)
-            # best_clf = grid_res.best_estimator_
-        elif survival == 1:
-            best_clf = estimator.fit(X_train, y_train)
-            
-    utils.pbar.set_description('Interpretability Process', refresh=True)
-    # predictions = (clf.fit(X_train, y_train)).predict(X_test)
-    with stats.measure_time('PIPE_OUTPUT'):
-        if survival == 0:
-            acc = best_clf.score(X_test, y_test)
-            y_pred = best_clf.predict(X_test)
-            model_name = type(best_clf).__name__
-            # hyp = best_clf.get_params()
-            hyp = study.best_params
-            hyp_keys = hyp.keys()
-            hyp_val = hyp.values()
-            res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 'hyperparameters_value': pd.Series(hyp_val)})
-            res.loc[:, 'run_id'] = st
-            res.loc[:, 'model'] = model_name
-            res.loc[:, 'accuracy'] = acc
-            res = res.set_index('run_id')
-            res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
-        elif survival==1:
-            survival_functions = best_clf.predict_survival_function(X_test)
-            # Calculate the Brier score
-            # Note: You may need to adjust the following code to fit the exact format of your data and predictions
-            times = np.arange(1, y_test['time'].max(), step=1)
-            ibs = integrated_brier_score(y_test, survival_functions, times)
+            with stats.measure_time('PIPE_OUTPUT'):     
+                # Predict survival functions for the test set
+                y_pred = best_clf.predict_survival_function(X_test)
+                # Adjust the times array to be within the range of follow-up times in the test data
+                min_time = y_test['time'].min()
+                max_time = y_test['time'].max()
+                times = np.arange(min_time, max_time, step=1)
+                preds = np.asarray([[fn(t) for t in times] for fn in y_pred])
+                acc = integrated_brier_score(y_train ,y_test, preds, times)
 
-    # 2 Options Survival or Static depending on the user input
-    if survival == 0: 
-        lime_interpretation(X_train, new_sampled_data, best_clf, ind_test, X_test, classes, st, lime_results)
-    
-    elif survival == 1:
-        survshap.SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results)
-    
-        
-    # Saving the classification report
-    with stats.measure_time('PIPE_OUTPUT'):
-        report = classification_report(y_test, y_pred, target_names=classes, output_dict=True)
-        classificationreport = pd.DataFrame(report).transpose()
-        classificationreport.loc[:, 'run_id'] = st
-        classificationreport = classificationreport.reset_index()
-        classificationreport = classificationreport.rename(columns={classificationreport.columns[0]: 'classes'})
-        # print(classificationreport)
-        report = classificationreport.iloc[:-3, :]
-        # print(report)
-        report.to_csv("interpretme/files/precision_recall.csv", index=False)
-
-    utils.pbar.set_description('Preparing Plots Data', refresh=True)
-    with stats.measure_time('PIPE_DTREEVIZ'):
-        bool_feature = []
-        for feature in new_sampled_data.columns:
-            values = new_sampled_data[feature].unique()
-            if len(values) == 2:
-                values = sorted(values)
-                if values[0] == 0 and values[1] == 1:
-                    bool_feature.append(feature)
-
-        viz = dtreeviz_lib.dtreeviz(best_clf, new_sampled_data, sampled_target['class'], target_name='class',
-                                    feature_names=feature_names, class_names=classes, fancy=True,
-                                    show_root_edge_labels=True, bool_feature=bool_feature)
-        results['dtree'] = viz
-    utils.pbar.update(1)
+                # Extract best hyperparameters
+                model_name = type(best_clf).__name__
+                best_param = cv.best_params_
+                hyp_keys = best_param.keys()
+                hyp_val = best_param.values()
+                res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 
+                                    'hyperparameters_value': pd.Series(hyp_val),
+                                    'brier_score': acc})
+                res.loc[:, 'run_id'] = st
+                res.loc[:, 'model'] = model_name
+                res.loc[:, 'accuracy'] = acc
+                res = res.set_index('run_id')
+                res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
+            utils.pbar.set_description('Interpretability Process', refresh=True)
+            survshap.SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results)
+            print('ACC_brier_Score', acc)
+            # Saving the classification report
+            survival_metrics = {
+                'run_id': st,
+                'model': type(best_clf).__name__,
+                'brier_score': acc, 
+                # Include other metrics or information as needed
+            }
+            survival_report = pd.DataFrame([survival_metrics])
+            survival_report.to_csv("interpretme/files/precision_recall.csv", index=False)
 
     return new_sampled_data, best_clf, results
 

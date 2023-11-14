@@ -135,7 +135,7 @@ def hot_encode(data, seed_var):
 
 
 @time_preprocessing
-def load_data(seed_var, dependent_var, classes, annotated_dataset, survival):
+def load_data(seed_var,independent_var, dependent_var, classes, annotated_dataset, survival):
     """Preprocessing (one-hot encoding) the dataset extracted from input knowledge graph.
 
     Parameters
@@ -159,16 +159,21 @@ def load_data(seed_var, dependent_var, classes, annotated_dataset, survival):
     """
     # print("--------- Preprocessing Data --------------")
     # print(annotated_dataset)
-    if survival == 1:
-        encode_data = annotated_dataset.drop(['event', 'time'], axis=1)
+    if survival == 0:
+        independent_var = [var for var in independent_var if var != seed_var]
+        encode_target = define_class(classes, dependent_var, annotated_dataset)
+        ann_data = annotated_dataset.drop(dependent_var, axis=1)
+        independent_data = ann_data[independent_var]
+        encode_data = hot_encode(independent_data, seed_var)
+
+        return encode_data, encode_target
+    elif survival==1:
+        # Remove specific value 'seed_var' from independent_var list
+        independent_var = [var for var in independent_var if var != seed_var]
+        ann_data = annotated_dataset.drop(['event', 'time'], axis=1)
+        encode_data = ann_data[independent_var]
         encode_target = Surv.from_dataframe("event", "time", annotated_dataset)
         new_dtype = [('event', 'bool'), ('time', 'float64')]
         encode_target = np.array(encode_target, dtype=new_dtype)
-        return encode_data, encode_target
-    else:
-        encode_target = define_class(classes, dependent_var, annotated_dataset)
-
-        ann_data = annotated_dataset.drop(dependent_var, axis=1)
-        encode_data = hot_encode(ann_data, seed_var)
 
         return encode_data, encode_target
