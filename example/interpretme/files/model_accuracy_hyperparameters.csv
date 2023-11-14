@@ -1,0 +1,4 @@
+run_id,hyperparameters_name,hyperparameters_value,brier_score,model,accuracy
+1699917433539,max_depth,3,0.21585668479765763,RandomSurvivalForest,0.21585668479765763
+1699917433539,max_features,sqrt,0.21585668479765763,RandomSurvivalForest,0.21585668479765763
+1699917433539,n_estimators,300,0.21585668479765763,RandomSurvivalForest,0.21585668479765763
