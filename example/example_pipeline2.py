@@ -14,6 +14,4 @@ results = pipeline(
     survival=1
     )
 
-plots.sampling(results=results, path='./interpretme/output')
-plots.feature_importance(results=results, path='./interpretme/output')
-plots.decision_trees(results=results, path='./interpretme/output')
+

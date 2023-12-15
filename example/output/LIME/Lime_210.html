@@ -37089,25 +37089,25 @@
 /***/ })
 /******/ ]);
 //# sourceMappingURL=bundle.js.map </script></head><body>
-        <div class="lime top_div" id="top_div0OEQCZ2CV0VOX19"></div>
+        <div class="lime top_div" id="top_divR3JJW80PTG2W3OJ"></div>
         
         <script>
-        var top_div = d3.select('#top_div0OEQCZ2CV0VOX19').classed('lime top_div', true);
+        var top_div = d3.select('#top_divR3JJW80PTG2W3OJ').classed('lime top_div', true);
         
             var pp_div = top_div.append('div')
                                 .classed('lime predict_proba', true);
             var pp_svg = pp_div.append('svg').style('width', '100%');
-            var pp = new lime.PredictProba(pp_svg, ["0", "1"], [0.75, 0.25]);
+            var pp = new lime.PredictProba(pp_svg, ["0", "1"], [0.18212669683257918, 0.8178733031674208]);
             
         
         var exp_div;
             var exp = new lime.Explanation(["0", "1"]);
         
                 exp_div = top_div.append('div').classed('lime explanation', true);
-                exp.show([["age_80.0 <= 0.00", -0.7241425887897449], ["age_59.0 <= 0.00", -0.7237182464746675], ["age_95.0 <= 0.00", -0.6947981876948911], ["age_48.0 <= 0.00", -0.6673673841757217], ["age_82.0 <= 0.00", -0.6469439422144306], ["age_72.0 <= 0.00", 0.0012323510884603443], ["age_75.0 <= 0.00", -0.0010565056497673319], ["anaemia_1 <= 0.00", 0.00017003676486614789], ["0.00 < smoking_1 <= 1.00", 1.1506545673923347e-05], ["0.00 < sex_0 <= 1.00", 5.391337893916085e-07]], 1, exp_div);
+                exp.show([["pr_firstorder_MeanAbsoluteDeviation_6.0265 <= 0.00", 0.703804043224679], ["pr_firstorder_MeanAbsoluteDeviation_5.5755 <= 0.00", 0.6728336064863898], ["age_84 <= 0.00", 0.6699859946480751], ["age_74 <= 0.00", 0.38371105574497216], ["age_75 <= 0.00", 0.36989897627533663], ["age_67 <= 0.00", 0.18175582470190882], ["0.00 < an_pleural_effusion_0.0 <= 1.00", 0.012311787478448088], ["age_54 <= 0.00", -0.0053966317537698085], ["pr_firstorder_MeanAbsoluteDeviation_5.2309 <= 0.00", 0.0023761935178961435], ["an_pleural_effusion_1.0 <= 0.00", -0.001147251045582431]], 1, exp_div);
                 
         var raw_div = top_div.append('div');
-            exp.show_raw_tabular([["age_80.0", "0.00", -0.7241425887897449], ["age_59.0", "0.00", -0.7237182464746675], ["age_95.0", "0.00", -0.6947981876948911], ["age_48.0", "0.00", -0.6673673841757217], ["age_82.0", "0.00", -0.6469439422144306], ["age_72.0", "0.00", 0.0012323510884603443], ["age_75.0", "0.00", -0.0010565056497673319], ["anaemia_1", "0.00", 0.00017003676486614789], ["smoking_1", "1.00", 1.1506545673923347e-05], ["sex_0", "1.00", 5.391337893916085e-07]], 1, raw_div);
+            exp.show_raw_tabular([["pr_firstorder_MeanAbsoluteDeviation_6.0265", "0.00", 0.703804043224679], ["pr_firstorder_MeanAbsoluteDeviation_5.5755", "0.00", 0.6728336064863898], ["age_84", "0.00", 0.6699859946480751], ["age_74", "0.00", 0.38371105574497216], ["age_75", "0.00", 0.36989897627533663], ["age_67", "0.00", 0.18175582470190882], ["an_pleural_effusion_0.0", "1.00", 0.012311787478448088], ["age_54", "0.00", -0.0053966317537698085], ["pr_firstorder_MeanAbsoluteDeviation_5.2309", "0.00", 0.0023761935178961435], ["an_pleural_effusion_1.0", "0.00", -0.001147251045582431]], 1, raw_div);
         
         </script>
         </body></html>

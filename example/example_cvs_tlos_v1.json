@@ -1,15 +1,15 @@
 {
   "path_to_data": "dataset/tlos_v1.csv",
   "Type": "Person",
-  "Index_var": "index",
-  "Independent_variable": ["index","sex", "age", "an_parenchymal_opacification", "an_cardiac_silhouette_enlargement", "an_pleural_effusion", "pr_firstorder_MeanAbsoluteDeviation"],
+  "Index_var": "patient_id",
+  "Independent_variable": ["patient_id","sex", "age", "an_pleural_effusion", "pr_firstorder_MeanAbsoluteDeviation"],
   "Dependent_variable": ["event"],
   "classes": {
     "Dead": "0",
     "Alive": "1"
   },
   "sampling_strategy": "None",
-  "number_important_features": 6,
+  "number_important_features": 4,
   "cross_validation_folds": 5,
   "test_split": 0.3,
   "model": "Random survival Forest",

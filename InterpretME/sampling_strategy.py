@@ -3,7 +3,7 @@ from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 
 
-def sampling_strategy(encode_data, encode_target, strategy, results, survival):
+def sampling_strategy(encode_data, encode_target, strategy, results):
     """Sampling strategy to balance the imbalanced data for predictive model.
 
     Parameters
@@ -24,13 +24,13 @@ def sampling_strategy(encode_data, encode_target, strategy, results, survival):
 
     """
     if strategy == 'undersampling':
-        X, y, results = undersampling(encode_data, encode_target, results, survival)
+        X, y, results = undersampling(encode_data, encode_target, results)
     if strategy == 'oversampling':
-        X, y, results = oversampling(encode_data, encode_target, results, survival)
+        X, y, results = oversampling(encode_data, encode_target, results)
     return X, y, results
 
 
-def undersampling(encode_data, encode_target, results, survival):
+def undersampling(encode_data, encode_target, results):
     """Under-Sampling strategy.
 
     Parameters
@@ -53,13 +53,6 @@ def undersampling(encode_data, encode_target, results, survival):
     Y = encode_target
     rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=123)
     X_res, y_res = rus.fit_resample(X, Y['class'])
-    if survival == 1:
-        y_res_time = Y['time'].iloc[rus.sample_indices_]
-        # Combine 'class' and 'time' back into a dataframe
-        y_res = pd.DataFrame({
-            'class': y_res,
-            'time': y_res_time
-        })
     X_res.index = X.index[rus.sample_indices_]
     y_res.index = Y.index[rus.sample_indices_]
     samp = y_res.value_counts()
@@ -69,7 +62,7 @@ def undersampling(encode_data, encode_target, results, survival):
     return X_res, y_res, results
 
 
-def oversampling(encode_data, encode_target, results, survival):
+def oversampling(encode_data, encode_target, results):
     """Over-Sampling strategy.
 
     Parameters
@@ -92,13 +85,6 @@ def oversampling(encode_data, encode_target, results, survival):
     Y = encode_target
     rus = RandomUnderSampler(sampling_strategy=sampling_strategy, random_state=123)
     X_res, y_res = rus.fit_resample(X, Y['class'])
-    if survival == 1:
-        y_res_time = Y['time'].iloc[rus.sample_indices_]
-        # Combine 'class' and 'time' back into a dataframe
-        y_res = pd.DataFrame({
-            'class': y_res,
-            'time': y_res_time
-        })
     X_res.index = X.index[rus.sample_indices_]
     y_res.index = Y.index[rus.sample_indices_]
     samp = y_res.value_counts()

@@ -37089,25 +37089,25 @@
 /***/ })
 /******/ ]);
 //# sourceMappingURL=bundle.js.map </script></head><body>
-        <div class="lime top_div" id="top_divJB52WODW54N2Y69"></div>
+        <div class="lime top_div" id="top_divC5ZUYRANUTS27BL"></div>
         
         <script>
-        var top_div = d3.select('#top_divJB52WODW54N2Y69').classed('lime top_div', true);
+        var top_div = d3.select('#top_divC5ZUYRANUTS27BL').classed('lime top_div', true);
         
             var pp_div = top_div.append('div')
                                 .classed('lime predict_proba', true);
             var pp_svg = pp_div.append('svg').style('width', '100%');
-            var pp = new lime.PredictProba(pp_svg, ["0", "1"], [0.0, 1.0]);
+            var pp = new lime.PredictProba(pp_svg, ["0", "1"], [0.18212669683257918, 0.8178733031674208]);
             
         
         var exp_div;
             var exp = new lime.Explanation(["0", "1"]);
         
                 exp_div = top_div.append('div').classed('lime explanation', true);
-                exp.show([["serum_creatinine_0.8 <= 0.00", 0.4619220881039417], ["serum_creatinine_0.7 <= 0.00", 0.4190489268341105], ["ejection_fraction_40 <= 0.00", 0.40940647987554174], ["ejection_fraction_35 <= 0.00", 0.3816323954630109], ["ejection_fraction_20 > 0.00", 0.2955513185899378], ["serum_sodium_132 <= 0.00", -0.09758963521732898], ["time_10 <= 0.00", -0.030845253424737176], ["anaemia_1 <= 0.00", -0.020866711613198315], ["serum_creatinine_1.9 <= 0.00", 0.017897995288476874], ["serum_sodium_140 <= 0.00", -0.01702801959719902]], 1, exp_div);
+                exp.show([["pr_firstorder_MeanAbsoluteDeviation_6.0265 <= 0.00", 0.707746326657623], ["age_84 <= 0.00", 0.6975901181138572], ["pr_firstorder_MeanAbsoluteDeviation_5.5755 <= 0.00", 0.6717724107272973], ["age_75 <= 0.00", 0.4828832747966001], ["age_74 <= 0.00", 0.35994781613006005], ["age_67 <= 0.00", 0.20080677321722454], ["pr_firstorder_MeanAbsoluteDeviation_5.2309 <= 0.00", -0.019706783387932556], ["pr_firstorder_MeanAbsoluteDeviation_5.476 <= 0.00", -0.015568366113371724], ["0.00 < an_pleural_effusion_0.0 <= 1.00", 0.015066325930189734], ["pr_firstorder_MeanAbsoluteDeviation_5.5566 <= 0.00", 0.007061512897355801]], 1, exp_div);
                 
         var raw_div = top_div.append('div');
-            exp.show_raw_tabular([["serum_creatinine_0.8", "0.00", 0.4619220881039417], ["serum_creatinine_0.7", "0.00", 0.4190489268341105], ["ejection_fraction_40", "0.00", 0.40940647987554174], ["ejection_fraction_35", "0.00", 0.3816323954630109], ["ejection_fraction_20", "1.00", 0.2955513185899378], ["serum_sodium_132", "0.00", -0.09758963521732898], ["time_10", "0.00", -0.030845253424737176], ["anaemia_1", "0.00", -0.020866711613198315], ["serum_creatinine_1.9", "0.00", 0.017897995288476874], ["serum_sodium_140", "0.00", -0.01702801959719902]], 1, raw_div);
+            exp.show_raw_tabular([["pr_firstorder_MeanAbsoluteDeviation_6.0265", "0.00", 0.707746326657623], ["age_84", "0.00", 0.6975901181138572], ["pr_firstorder_MeanAbsoluteDeviation_5.5755", "0.00", 0.6717724107272973], ["age_75", "0.00", 0.4828832747966001], ["age_74", "0.00", 0.35994781613006005], ["age_67", "0.00", 0.20080677321722454], ["pr_firstorder_MeanAbsoluteDeviation_5.2309", "0.00", -0.019706783387932556], ["pr_firstorder_MeanAbsoluteDeviation_5.476", "0.00", -0.015568366113371724], ["an_pleural_effusion_0.0", "1.00", 0.015066325930189734], ["pr_firstorder_MeanAbsoluteDeviation_5.5566", "0.00", 0.007061512897355801]], 1, raw_div);
         
         </script>
         </body></html>

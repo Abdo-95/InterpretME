@@ -3,18 +3,17 @@ import json
 import os
 import os.path
 import time
-from pathlib import Path
-
+import numpy as np 
 import pandas as pd
 import validating_models.stats as stats
+import InterpretME.utils as utils
+from pathlib import Path
 from pkg_resources import resource_filename
 from validating_models.checker import Checker
 from validating_models.constraint import ShaclSchemaConstraint
 from validating_models.dataset import BaseDataset, ProcessedDataset
 from validating_models.models.decision_tree import get_shadow_tree_from_checker
 from validating_models.shacl_validation_engine import ReducedTravshaclCommunicator
-
-import InterpretME.utils as utils
 from InterpretME import preprocessing_data, sampling_strategy, classification
 from InterpretME.semantification import rdf_semantification
 from InterpretME.upload import upload_to_virtuoso
@@ -62,6 +61,9 @@ def read_dataset(input_data,st):
     else:  # assuming CSV
         with stats.measure_time('PIPE_DATASET_EXTRACTION'):
             annotated_dataset = pd.read_csv(path)
+            if 'index' not in annotated_dataset.columns:
+                # Reset the index without dropping it, adding a new column 'index'
+                annotated_dataset = annotated_dataset.reset_index(drop=False)
             # print("Reading the data in csv format")
     seed_var = input_data['Index_var']
     sampling = input_data['sampling_strategy']
@@ -358,6 +360,9 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
         sampling = "None"
     else:
         sampling = sampling
+    if sampling != "None" and survival == 1:
+        raise ValueError("Sampling strategies cannot be applied to survival data. Please set 'sampling' to None for survival mode")
+
     # Store the chosen sampling strategy for this run
     df3 = pd.DataFrame({'sampling': pd.Series(sampling)})
     df3.loc[:, 'run_id'] = st
@@ -420,6 +425,12 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
 
     # Train the machine learning model and make predictions
     new_sampled_data, clf, results = classification.classify(sampled_data, sampled_target, imp_features, cv, classes, st, survival, lime_results, survshap_results, test_split, model, results, min_max_depth, max_max_depth)
+
+    # Ensure that new_sampled_data and sampled_target, ard DataFrames
+    if isinstance(new_sampled_data, np.ndarray):
+        new_sampled_data = pd.DataFrame(new_sampled_data)
+    if isinstance(sampled_target, np.ndarray):
+        sampled_target = pd.DataFrame(sampled_target)
     processed_df = pd.concat((new_sampled_data, sampled_target), axis='columns')
     processed_df.reset_index(inplace=True)
 

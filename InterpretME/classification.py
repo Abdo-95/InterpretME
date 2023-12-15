@@ -12,7 +12,7 @@ from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, Gradien
 from sklearn.metrics import classification_report
 from sklearn.model_selection import StratifiedShuffleSplit, ShuffleSplit, train_test_split, ParameterGrid, GridSearchCV, cross_val_score
 from sksurv.util import Surv
-from sksurv.metrics import integrated_brier_score
+from sksurv.metrics import integrated_brier_score, concordance_index_censored
 from sksurv.ensemble import RandomSurvivalForest
 from slugify import slugify
 import InterpretME.utils as utils
@@ -355,9 +355,11 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
             )
             # Define the hyperparameter grid for RandomSurvivalForest
             hyperparameter_grid = {
-                'n_estimators': [100, 300],
-                'max_depth': [3, 5],
-                'max_features': ['sqrt', 'log2']
+            'n_estimators': [100, 300],
+            'min_samples_split': [2, 5, 10],
+            'min_samples_leaf': [1, 2, 4],
+            'max_depth': [3, 5, 10],
+            'max_features': ['sqrt', 'log2']
             }
 
             # Use GridSearchCV for hyperparameter tuning
@@ -370,19 +372,27 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
             # Extract the best parameters and model
             best_param = cv_result.best_params_
             best_clf = RandomSurvivalForest(random_state=123, 
-                                            n_estimators=best_param['n_estimators'], 
+                                            n_estimators=best_param['n_estimators'],
+                                            min_samples_split=best_param['min_samples_split'],
+                                            min_samples_leaf=best_param['min_samples_leaf'], 
                                             max_depth=best_param['max_depth'], 
-                                            max_features=best_param['max_features'])
+                                            max_features=best_param['max_features']
+                                            )
             best_clf.fit(X_train, y_train)
             with stats.measure_time('PIPE_OUTPUT'):     
                 # Predict survival functions for the test set
                 y_pred = best_clf.predict_survival_function(X_test)
+                # predict risk values for the test set
+                y_pred_risk = best_clf.predict(X_test)
                 # Adjust the times array to be within the range of follow-up times in the test data
                 min_time = y_test['time'].min()
                 max_time = y_test['time'].max()
                 times = np.arange(min_time, max_time, step=1)
                 preds = np.asarray([[fn(t) for t in times] for fn in y_pred])
+                # Calculatiin the Brier score
                 acc = integrated_brier_score(y_train ,y_test, preds, times)
+                # Caluclating the Concordance-Index
+                c_index = concordance_index_censored(y_test['event'], y_test['time'] , y_pred_risk)
 
                 # Extract best hyperparameters
                 model_name = type(best_clf).__name__
@@ -391,21 +401,20 @@ def binary_classification(sampled_data, sampled_target, imp_features, cross_vali
                 hyp_val = best_param.values()
                 res = pd.DataFrame({'hyperparameters_name': pd.Series(hyp_keys), 
                                     'hyperparameters_value': pd.Series(hyp_val),
-                                    'brier_score': acc})
+                                    'brier_score': acc,
+                                    'concordance_index': c_index[0]})
                 res.loc[:, 'run_id'] = st
                 res.loc[:, 'model'] = model_name
-                res.loc[:, 'accuracy'] = acc
                 res = res.set_index('run_id')
                 res.to_csv('interpretme/files/model_accuracy_hyperparameters.csv')
             utils.pbar.set_description('Interpretability Process', refresh=True)
             survshap.SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_results)
-            print('ACC_brier_Score', acc)
             # Saving the classification report
             survival_metrics = {
                 'run_id': st,
                 'model': type(best_clf).__name__,
-                'brier_score': acc, 
-                # Include other metrics or information as needed
+                'brier_score': acc,
+                'concordance_index': c_index[0], 
             }
             survival_report = pd.DataFrame([survival_metrics])
             survival_report.to_csv("interpretme/files/precision_recall.csv", index=False)
