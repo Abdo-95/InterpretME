@@ -418,7 +418,7 @@ def pipeline(path_config, lime_results, survshap_results, server_url=None, usern
         if sampling == "None":
             sampled_data, sampled_target = encoded_data, encode_target
         else:
-            sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target,sampling, results, survival)
+            sampled_data, sampled_target, results = sampling_strategy.sampling_strategy(encoded_data, encode_target,sampling, results)
     utils.pbar.update(1)
 
     ###***   <MODEL BULDING & CLASSIFICATION>  ***###

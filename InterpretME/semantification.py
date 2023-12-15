@@ -14,7 +14,7 @@ def rdf_semantification(input_is_kg: bool):
             'main_directory': resource_filename('InterpretME', '')
         },
         'datasets': {
-            'number_of_datasets': '12' if input_is_kg else '8',
+            'number_of_datasets': '12' if input_is_kg else '9',
             'output_folder': './rdf-dump',
             'all_in_one_file': 'yes',
             'remove_duplicate': 'yes',
@@ -54,6 +54,10 @@ def rdf_semantification(input_is_kg: bool):
         'dataset8': {
             'name': 'prediction_probabilities',
             'mapping': '${default:main_directory}/mappings/prediction_probabilities.ttl'
+        },
+        'dataset9': {
+            'name': 'survshap_features',
+            'mapping': '${default:main_directory}/mappings/SurvShap.ttl'
         }
     }
 
