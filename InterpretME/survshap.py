@@ -127,8 +127,7 @@ def survshap_local_accuracy(all_explanations, method_label, cluster_label, model
     return  pd.DataFrame({"time": all_explanations[0].timestamps[:last_index], "sigma": np.sqrt(E_diffs_squared) / np.sqrt(E_preds_squared), 
      "method": method_label, "cluster": cluster_label, "model": model_label })
 
-def get_feature_orderings_and_ranks_survshap(explanations):
-
+def calculate_feature_orderings(explanations):
     """Calculates feature rankings and ranks from SurvShap declarations.
     Parameters
     ----------
@@ -142,17 +141,33 @@ def get_feature_orderings_and_ranks_survshap(explanations):
 
     """
     feature_importance_orderings = []
-    feature_importance_ranks = []
-    # Loop through all explanations and calculate the cumulative change
+
     for explanation in explanations:
         result_df = explanation.result.copy()
         cumulative_change = cumtrapz(np.abs(result_df.iloc[:, 5:].values), explanation.timestamps, initial=0, axis=1)[:, -1]
         result_df['aggregated_change'] = cumulative_change
-        sorted_df = result_df.sort_values(by='aggregated_change', key=lambda x: -abs(x))
+        sorted_df = result_df.sort_values(by='aggregated_change', key=lambda x: -abs(x)).reset_index() 
+        # reset the index to get the index as a column
+        sorted_df.index = sorted_df['variable_name'] 
+        # set the index to the 'Variable_name' column values
         feature_importance_orderings.append(sorted_df.index.to_list())
-        feature_importance_ranks.append(np.abs(sorted_df['aggregated_change']).rank(ascending=False).to_list())
-    #Create DataFrames with the calculated results and return them
-    return pd.DataFrame(feature_importance_orderings), pd.DataFrame(feature_importance_ranks)
+
+    
+    return pd.DataFrame(feature_importance_orderings)
+
+
+def create_ranking_summary(ordering):
+    res = pd.DataFrame()
+
+    for i in range(ordering.shape[1]):
+        counts = ordering.iloc[:, i].value_counts().reset_index()
+        counts.columns = ['variable', 'value']
+        counts['importance_ranking'] = i + 1
+        res = pd.concat([res, counts])
+    
+    return res[['importance_ranking', 'variable', 'value']]
+
+
 
 def prepare_ranking_summary_long(ordering):
     """ Provide a summary of the ranking for a given Ordering DataFrame.
@@ -239,19 +254,7 @@ def combine_survshaps_files(survshap_files_path, st):
     final_df.to_csv(output_path, index=False)
 
 
-# def prepare_ranking_summary_long(ordering):
-#     num_cols = ordering.shape[1]  # get number of columns
-#     column_names = ["x"+str(i+1) for i in range(num_cols)]  # dynamically create column names
-#     res = pd.DataFrame(columns=column_names)
 
-#     for i in range(num_cols):
-#         tmp = pd.DataFrame(ordering.iloc[:, i].value_counts().to_dict(), index=[i+1])
-#         res = pd.concat([res, tmp])
-    
-#     res = res.reset_index().rename(columns={i: "x"+str(i+1) for i in range(num_cols)}, index=str)
-#     res = res.rename(columns={"index": "importance_ranking"})
-    
-#     return res.melt(id_vars=["importance_ranking"], value_vars=column_names)
 
 #Plotting 
 # Function to make factors in the dataset
@@ -264,8 +267,7 @@ def make_factors(data):
                                       categories=data['variable'].unique()[::-1],
                                       ordered=True)
     return data
-
-def barplot_variable_ranking(data, title='', ytitle=''):
+def barplot_variable_ranking(data, title='', xtitle='', ytitle=''):
     color_palette = ["#9C27B0","#009688","#3F51B5","#FF5733", "#03A9F4", "#FFC300", "#DAF7A6", "#581845",
                  "#C70039", "#FF5733", "#900C3F", "#DAF7A6", "#581845",
                  "#9C27B0", "#673AB7",  "#2196F3", "#900C3F",
@@ -305,13 +307,124 @@ def barplot_variable_ranking(data, title='', ytitle=''):
                 horizontalalignment='center', 
                 color='black', fontsize=12)
     ax = plt.gca()
-    ax.set(title=title, xlabel='Value')
+    ax.set(title=title, xlabel=xtitle)
     ax.set_ylabel(ytitle)
     # Reverse the order of y-axis
     ax.invert_yaxis()
-    ax.legend(title='Rankins Variable Importance', 
+    ax.legend(title='Examined Features', 
               loc='lower center', bbox_to_anchor=(1, 1))
     ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
     ax.xaxis.set_minor_locator(ticker.MultipleLocator(5))
     plt.tight_layout()
+    plt.show()
+
+def plot_SurvSHAP_values_to_time(survshap_csv_directory):
+    # Get a list of all CSV files in the specified path
+    search_path = os.path.join(survshap_csv_directory, '*.csv')
+
+    # Get a list of all CSV files in the specified directory
+    csv_files = glob.glob(search_path)
+    # Initialize an empty DataFrame to store all data
+    all_data = pd.DataFrame()
+
+    # Iterate over all CSV files
+    for file in csv_files:
+        # Load the CSV file
+        df = pd.read_csv(file)
+
+        # Get the column names
+        cols = df.columns
+
+        # Identify columns to keep
+        cols_to_keep = ['variable_name'] + [col for col in cols if col.startswith('t = ')]
+
+        # Keep necessary columns and take absolute value of the 't = ' columns
+        df = df[cols_to_keep]
+        for col in df.columns:
+            if col.startswith('t = '):
+                df[col] = df[col].abs()
+
+         # Append the data to the all_data DataFrame
+        all_data = pd.concat([all_data, df], ignore_index=True)
+
+    # Group by 'variable_name' and calculate mean
+    average_data = all_data.groupby('variable_name').mean().reset_index()
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    max_time = 0  # Variable to track the maximum time value
+    for variable in average_data['variable_name'].unique():
+        data_subset = average_data[average_data['variable_name'] == variable]
+        data_subset = data_subset.drop('variable_name', axis=1).mean()
+
+        # Remove 't =' prefix from the first row
+        data_subset.index = data_subset.index.str.replace('t = ', '')
+        time_values = data_subset.index.astype(float)
+        # Update the maximum time value
+        max_time = max(max_time, max(time_values))  
+        plt.plot(time_values, data_subset.values, label=variable)
+
+    plt.xlabel('Time (days)')
+    plt.ylabel('Aggregated |SurvSHAP Values|')
+    plt.legend(title="Examined Feature")
+    plt.grid(True)
+
+    # Customize x-axis and y-axis ticks
+    x_ticks = np.arange(0, max_time + 10, 10)
+    plt.xticks(x_ticks, x_ticks.astype(int), fontsize=8)
+    plt.yticks(fontsize=8)
+
+    plt.show()
+
+def plot_SurvSHAP_values_to_time_for_specific_file(csv_path, patient_id):
+     # Construct the full path of the file
+    file_path = os.path.join(csv_path, patient_id + '.csv')
+
+    # Check if the file exists
+    if not os.path.isfile(file_path):
+        print(f"File {patient_id}.csv not found in the specified directory.")
+        return
+
+    # Load the CSV file
+    df = pd.read_csv(file_path)
+
+    # Get the column names
+    cols = df.columns
+
+    # Identify columns to keep
+    cols_to_keep = ['variable_name'] + [col for col in cols if col.startswith('t = ')]
+
+    # Keep necessary columns and take absolute value of the 't = ' columns
+    df = df[cols_to_keep]
+    for col in df.columns:
+        if col.startswith('t = '):
+            df[col] = df[col].abs()
+
+    # Group by 'variable_name' and calculate mean
+    average_data = df.groupby('variable_name').mean().reset_index()
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    max_time = 0  # Variable to track the maximum time value
+    for variable in average_data['variable_name'].unique():
+        data_subset = average_data[average_data['variable_name'] == variable]
+        data_subset = data_subset.drop('variable_name', axis=1).mean()
+
+        # Remove 't =' prefix from the first row
+        data_subset.index = data_subset.index.str.replace('t = ', '')
+        time_values = data_subset.index.astype(float)
+        # Update the maximum time value
+        max_time = max(max_time, max(time_values))  
+        plt.plot(time_values, data_subset.values, label=variable)
+
+    plt.xlabel('Time (days)')
+    plt.ylabel(f'|SurvSHAP Values| for {patient_id}' )
+    plt.legend(title="Examined Feature")
+    plt.grid(True)
+
+    # Customize x-axis and y-axis ticks
+    x_ticks = np.arange(0, max_time + 10, 10)
+    plt.xticks(x_ticks, x_ticks.astype(int), fontsize=8)
+    plt.yticks(fontsize=8)
+
     plt.show()
