@@ -10,7 +10,7 @@
 @prefix intr: <http://interpretme.org/vocab/> .
 
 <SurvSHAPFeatures>
-    rml:logicalSource [ rml:source "InterpretME/example/output/SurvShap/SurvShap/combined_survhshaps/combined_survhshap.csv";
+    rml:logicalSource [ rml:source "output/SurvShap/combined_SurvSHAP.csv";
                         rml:referenceFormulation ql:CSV;
                         ];
     rr:subjectMap [

@@ -52,12 +52,16 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
         if survshap_results is not None:
             if not os.path.exists(survshap_results):
                 os.makedirs(survshap_results, exist_ok=True)
+                # Create a subdirectory for individual SurvSHAP files
+                patients_dir_path = os.path.join(survshap_results, 'SurvSHAP_files')
+                os.makedirs(patients_dir_path, exist_ok=True)
             # Define the directory for saving CSV files.
         csv_dir_path = survshap_results
+        patients_dir_path = os.path.join(survshap_results, 'SurvSHAP_files')
         if not os.path.exists(csv_dir_path):
             os.makedirs(csv_dir_path, exist_ok=True)
         pbar = tqdm(total=len(X_test), desc='SurvShap explanations')
-        for i, obsv in tqdm(enumerate(X_test.values)):
+        for i, (index, obsv) in enumerate(X_test.iterrows()):
             xx = pd.DataFrame(np.atleast_2d(obsv), columns=explainer.data.columns)
             SurvShap_values = survshap.PredictSurvSHAP("sf", "kernel", "integral", "average", 25, None, False)
             SurvShap_values.fit(explainer, xx)
@@ -66,12 +70,12 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
             
             # convert SurvShap_values to a DataFrame and save as csv
             df_survshap = DataFrame(SurvShap_values.result)
-            # Now you can safely write the CSV file.
-            csv_file_path = os.path.join(csv_dir_path, f'patient_{i}.csv')
+            patient_id = index  # Assuming patient_id is the index of X_test
+            csv_file_path = os.path.join(patients_dir_path, f'patient_{patient_id}.csv')
             df_survshap.to_csv(csv_file_path, index=False)
 
             pbar.update(1)
-        combine_survshaps_files(csv_dir_path, st)
+        combine_survshaps_files(patients_dir_path, st)
         pbar.close()
         if survshap_results is not None:
             ## If the path defined in 'survshap_results' does not exist, Create it!
@@ -83,6 +87,59 @@ def SurvShap_interpretation(X_train, y_train, best_clf, X_test, st, survshap_res
             with open(pickle_file_path, "wb") as file:
                 pickle.dump(survshaps, file)
         return survshaps
+
+def combine_survshaps_files(survshap_files_path, st):
+    """Combine survshaps csv files fa single CSV file.
+
+    Parameters
+    ----------
+    survshap_files_path : string
+        Directory containing the input SurvShap output CSV files
+    st : Integer
+        Run_ID
+    Returns
+    -------
+    dataframe
+
+    """
+    
+    all_files = [os.path.join(survshap_files_path, file) for file in os.listdir(survshap_files_path) if file.endswith('.csv')]
+
+    li = []
+
+    for filename in all_files:
+        # Read each csv file
+        df = pd.read_csv(filename, index_col=None, header=0)
+
+        # Extracting relevant columns
+        temp_df = df[['variable_name', 'variable_value', 'aggregated_change']].copy()
+
+        # Rename columns to match the desired format
+        temp_df.columns = ['Features', 'Values', 'Aggregated Weights']
+
+        # Extract the filename (without the extension) to use as the 'index' value
+        file_name = os.path.basename(filename).split('.')[0]
+        temp_df.insert(0, 'index', file_name)
+
+        # Append this dataframe to the list
+        li.append(temp_df)
+
+    # Concatenate all the dataframes in the list
+    final_df = pd.concat(li, axis=0, ignore_index=True)
+    # Extract the numerical part of the 'index' and convert it to integer
+    final_df['index_num'] = final_df['index'].str.extract('(\d+)').astype(int)
+    # Sort the final dataframe by 'index' and then by 'features'
+    final_df = final_df.sort_values(by=['index_num', 'Features'])
+    # Drop the 'index_num' column as it's no longer needed
+    final_df.drop('index_num', axis=1, inplace=True)
+    # Add the 'tool' column with the value 'SurvShap'
+    final_df['run_id'] =  st
+    final_df['tool'] = 'SurvShap'
+    # Save the final dataframe to the desired location
+    parent_dir = os.path.dirname(survshap_files_path)
+    # Save the final dataframe to the parent directory
+    output_path = os.path.join(parent_dir, 'combined_SurvSHAP.csv')
+    final_df.to_csv(output_path, index=False)
 
 
 def survshap_local_accuracy(all_explanations, method_label, cluster_label, model_label, last_index=None):
@@ -198,60 +255,6 @@ def prepare_ranking_summary_long(ordering):
     # Return the resulting DataFrame with selected columns
     return res[['importance_ranking', 'variable', 'value']]
 
-def combine_survshaps_files(survshap_files_path, st):
-    """Combine survshaps csv files fa single CSV file.
-
-    Parameters
-    ----------
-    survshap_files_path : string
-        Directory containing the input SurvShap output CSV files
-    st : Integer
-        Run_ID
-    Returns
-    -------
-    dataframe
-
-    """
-    
-    all_files = [os.path.join(survshap_files_path, file) for file in os.listdir(survshap_files_path) if file.endswith('.csv')]
-
-    li = []
-
-    for filename in all_files:
-        # Read each csv file
-        df = pd.read_csv(filename, index_col=None, header=0)
-
-        # Extracting relevant columns
-        temp_df = df[['variable_name', 'variable_value', 'aggregated_change']].copy()
-
-        # Rename columns to match the desired format
-        temp_df.columns = ['Features', 'Values', 'Aggregated Weights']
-
-        # Extract the filename (without the extension) to use as the 'index' value
-        file_name = os.path.basename(filename).split('.')[0]
-        temp_df.insert(0, 'index', file_name)
-
-        # Append this dataframe to the list
-        li.append(temp_df)
-
-    # Concatenate all the dataframes in the list
-    final_df = pd.concat(li, axis=0, ignore_index=True)
-    # Extract the numerical part of the 'index' and convert it to integer
-    final_df['index_num'] = final_df['index'].str.extract('(\d+)').astype(int)
-    # Sort the final dataframe by 'index' and then by 'features'
-    final_df = final_df.sort_values(by=['index_num', 'Features'])
-    # Drop the 'index_num' column as it's no longer needed
-    final_df.drop('index_num', axis=1, inplace=True)
-    # Add the 'tool' column with the value 'SurvShap'
-    final_df['run_id'] =  st
-    final_df['tool'] = 'SurvShap'
-    # Define the subfolder and create it if it doesn't exist
-    subfolder_path = os.path.join(survshap_files_path, 'combined_survshaps')
-    if not os.path.exists(subfolder_path):
-        os.makedirs(subfolder_path)
-    # Save the final dataframe to the desired location
-    output_path = os.path.join(subfolder_path, 'combined_survhshap.csv')
-    final_df.to_csv(output_path, index=False)
 
 
 
@@ -267,7 +270,7 @@ def make_factors(data):
                                       categories=data['variable'].unique()[::-1],
                                       ordered=True)
     return data
-def barplot_variable_ranking(data, title='', xtitle='', ytitle=''):
+def plotting_features_ranking_bars(data, title='', xtitle='', ytitle=''):
     color_palette = ["#9C27B0","#009688","#3F51B5","#FF5733", "#03A9F4", "#FFC300", "#DAF7A6", "#581845",
                  "#C70039", "#FF5733", "#900C3F", "#DAF7A6", "#581845",
                  "#9C27B0", "#673AB7",  "#2196F3", "#900C3F",
