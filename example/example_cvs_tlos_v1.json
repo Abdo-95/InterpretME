@@ -2,7 +2,7 @@
   "path_to_data": "dataset/tlos_v1.csv",
   "Type": "Person",
   "Index_var": "patient_id",
-  "Independent_variable": ["patient_id","sex", "age", "an_pleural_effusion", "pr_firstorder_MeanAbsoluteDeviation"],
+  "Independent_variable": ["patient_id","sex", "age", "an_pleural_effusion", "pr_firstorder_MeanAbsoluteDeviation", "an_medical_devices", "an_fracture"],
   "Dependent_variable": ["event"],
   "classes": {
     "Dead": "0",

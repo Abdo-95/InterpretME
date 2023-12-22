@@ -1,8 +1,8 @@
 {
-  "path_to_data": "dataset/heart_failure_dataset.csv",
+  "path_to_data": "dataset/heart_failure_dataset_with_30%_corruption.csv",
   "Type": "Person",
-  "Index_var": "index",
-  "Independent_variable": ["index","sex", "age", "anaemia", "smoking"],
+  "Index_var": "patient_id",
+  "Independent_variable": ["patient_id","sex", "age", "anaemia", "smoking", "high_blood_pressure", "diabetes"],
   "Dependent_variable": ["event"],
   "classes": {
     "Dead": "0",

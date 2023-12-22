@@ -14,7 +14,7 @@
                         rml:referenceFormulation ql:CSV;
                         ];
     rr:subjectMap [
-        rr:template "http://interpretme.org/entity/{run_id}_{classes}";
+        rr:template "http://interpretme.org/entity/{run_id}_{model}";
         rr:class intr:PrecisionRecall
     ];
      rr:predicateObjectMap [
@@ -26,34 +26,20 @@
     rr:predicateObjectMap [
         rr:predicate intr:hasClasses;
         rr:objectMap [ 
-            rr:template "http://interpretme.org/entity/{classes}";
+            rr:template "http://interpretme.org/entity/{model}";
         ]
     ]; 
     rr:predicateObjectMap [
-        rr:predicate intr:hasPrecision;
+        rr:predicate intr:hasBrierScore;
         rr:objectMap [ 
-            rml:reference "precision";
+            rml:reference "brier_score";
             rr:datatype xsd:float
         ]
     ];
      rr:predicateObjectMap [
-        rr:predicate intr:hasRecall;
+        rr:predicate intr:hasCI;
         rr:objectMap [ 
-            rml:reference "recall";
-            rr:datatype xsd:float
-        ]
-    ];
-     rr:predicateObjectMap [
-        rr:predicate intr:hasF1score;
-        rr:objectMap [ 
-            rml:reference "f1-score";
-            rr:datatype xsd:float
-        ]
-    ];
-     rr:predicateObjectMap [
-        rr:predicate intr:hasSupport;
-        rr:objectMap [ 
-            rml:reference "support";
+            rml:reference "concordance_index";
             rr:datatype xsd:float
         ]
     ].

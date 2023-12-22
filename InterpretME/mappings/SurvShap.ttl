@@ -38,7 +38,7 @@
     rr:predicateObjectMap [
         rr:predicate intr:hasSurvSHAPFeatureValue;
         rr:objectMap [ 
-        rr:template "http://interpretme.org/entity/{aggregated_change}";   
+        rr:template "http://interpretme.org/entity/{Aggregated Weights}";   
         ]
     ]; 
     rr:predicateObjectMap [

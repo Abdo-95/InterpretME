@@ -1,7 +1,9 @@
 run_id,features,definition
-1702993336964,patient_id,patient_id
-1702993336964,sex,sex
-1702993336964,age,age
-1702993336964,an_pleural_effusion,an_pleural_effusion
-1702993336964,pr_firstorder_MeanAbsoluteDeviation,pr_firstorder_MeanAbsoluteDeviation
-1702993336964,event,event
+1703285359567,patient_id,patient_id
+1703285359567,sex,sex
+1703285359567,age,age
+1703285359567,anaemia,anaemia
+1703285359567,smoking,smoking
+1703285359567,high_blood_pressure,high_blood_pressure
+1703285359567,diabetes,diabetes
+1703285359567,event,event

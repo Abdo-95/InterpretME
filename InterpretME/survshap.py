@@ -380,6 +380,7 @@ def plot_SurvSHAP_values_to_time(survshap_csv_directory):
     plt.show()
 
 def plot_SurvSHAP_values_to_time_for_specific_file(csv_path, patient_id):
+
      # Construct the full path of the file
     file_path = os.path.join(csv_path, patient_id + '.csv')
 
@@ -430,4 +431,118 @@ def plot_SurvSHAP_values_to_time_for_specific_file(csv_path, patient_id):
     plt.xticks(x_ticks, x_ticks.astype(int), fontsize=8)
     plt.yticks(fontsize=8)
 
+    plt.show()
+
+def plot_SurvSHAP_values_to_time_for_specific_file_and_feature(csv_path, patient_id, feature_to_plot=None):
+    # Construct the full path of the file
+    file_path = os.path.join(csv_path, patient_id + '.csv')
+
+    # Check if the file exists
+    if not os.path.isfile(file_path):
+        print(f"File {patient_id}.csv not found in the specified directory.")
+        return
+
+    # Load the CSV file
+    df = pd.read_csv(file_path)
+
+    # Get the column names
+    cols = df.columns
+
+    # Identify columns to keep
+    cols_to_keep = ['variable_name'] + [col for col in cols if col.startswith('t = ')]
+
+    # Keep necessary columns and take absolute value of the 't = ' columns
+    df = df[cols_to_keep]
+    for col in df.columns:
+        if col.startswith('t = '):
+            df[col] = df[col].abs()
+
+    # Filter for a specific feature if provided
+    if feature_to_plot:
+        df = df[df['variable_name'] == feature_to_plot]
+
+    # Group by 'variable_name' and calculate mean
+    average_data = df.groupby('variable_name').mean().reset_index()
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    max_time = 0  # Variable to track the maximum time value
+    for variable in average_data['variable_name'].unique():
+        data_subset = average_data[average_data['variable_name'] == variable]
+        data_subset = data_subset.drop('variable_name', axis=1).mean()
+
+        # Remove 't =' prefix from the first row
+        data_subset.index = data_subset.index.str.replace('t = ', '')
+        time_values = data_subset.index.astype(float)
+        # Update the maximum time value
+        max_time = max(max_time, max(time_values))  
+        plt.plot(time_values, data_subset.values, label=variable, color='brown')
+        plt.xlabel('Time (days)')
+    plt.ylabel(f'|SurvSHAP Values| for {patient_id}' )
+    plt.legend(title="Examined Feature")
+    plt.grid(True)
+
+    # Customize x-axis and y-axis ticks
+    x_ticks = np.arange(0, max_time + 10, 10)
+    plt.xticks(x_ticks, x_ticks.astype(int), fontsize=8)
+    plt.yticks(fontsize=8)
+
+    plt.show()
+
+
+def plotting_features_ranking_bars_x(data, feature_colors, title='', xtitle='', ytitle=''):
+    """
+    Plot a feature ranking bar chart with specified colors for each feature.
+
+    Parameters:
+    data (DataFrame): Input DataFrame containing the data with columns 'variable', 'importance_ranking', and 'value'.
+    feature_colors (dict): Dictionary with features as keys and their corresponding colors as values.
+    title (str): Title of the plot.
+    xtitle (str): Title for the x-axis.
+    ytitle (str): Title for the y-axis.
+    """
+    
+    # Create a mapping for y-axis labels
+    y_labels = {rank: f"{rank}{suffix}" for rank, suffix in zip(range(1, data['importance_ranking'].nunique() + 1), ['st', 'nd', 'rd'] + ['th'] * 20)}
+    data['importance_ranking'] = data['importance_ranking'].replace(y_labels)
+
+    plt.figure(figsize=(8, 4))
+    for i, variable in enumerate(data['variable'].cat.categories):
+        # Check if the variable has a specified color, default to a gray color if not specified
+        color = feature_colors.get(variable, '#808080')
+
+        # Get the subset of data for this variable
+        data_subset = data[data['variable'] == variable].groupby(['variable', 'importance_ranking']).sum().reset_index()
+
+        # Calculate the position for this bar based on previous bars
+        if i == 0:
+            left = None
+        else:
+            prev_data = data[data['variable'].isin(data['variable'].cat.categories[:i])]
+            left = prev_data.groupby('importance_ranking')['value'].sum().reindex(data_subset['importance_ranking']).fillna(0)
+
+        # Plot the bars
+        bars = plt.barh(data_subset['importance_ranking'], data_subset['value'], 
+                        color=color, edgecolor='white', 
+                        left=left, label=variable, height= 0.75)
+        
+        # Annotate the value inside each bar segment
+        for bar in bars:
+            bar_value = bar.get_width()
+            if bar_value > 0:  # Only annotate bars with value > 0
+                plt.text(bar.get_x() + bar.get_width() / 2, 
+                         bar.get_y() + bar.get_height() / 2, 
+                         f"{bar_value:.0f}", 
+                         verticalalignment='center', 
+                         horizontalalignment='center', 
+                         color='black', fontsize=12)
+
+    ax = plt.gca()
+    ax.set(title=title, xlabel=xtitle)
+    ax.set_ylabel(ytitle)
+    ax.invert_yaxis()  # Reverse the order of y-axis
+    ax.legend(title='Examined Features', loc='lower center', bbox_to_anchor=(1, 1))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
+    ax.xaxis.set_minor_locator(ticker.MultipleLocator(5))
+    plt.tight_layout()
     plt.show()
